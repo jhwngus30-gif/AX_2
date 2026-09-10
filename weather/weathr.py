@@ -6,103 +6,113 @@ import yfinance as yf
 import altair as alt
 from dotenv import load_dotenv
 
-# 1. Streamlit 기본 설정
+# Streamlit 기본 설정 (스마트폰/다이어리 뷰에 적합하도록 centered 지정)
 st.set_page_config(
     page_title="여행 수첩: 날씨 & 환율",
     page_icon="✏️",
-    layout="centered"  # 모바일/수첩 느낌을 살리기 위해 centered 추천
+    layout="centered"
 )
 
-# 2. 핸드드로잉 모눈종이 스타일 커스텀 CSS 주입
+# -----------------------------
+# 0) 핸드스케치 모눈종이 커스텀 CSS
+# -----------------------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
 
-/* 전체 배경: 도트 그리드(모눈종이) 및 손글씨 폰트 */
+/* 전체 배경: 모눈종이 도트 그리드 & 손글씨 폰트 */
 html, body, [class*="css"], .stApp {
     font-family: 'Gaegu', cursive !important;
-    font-size: 20px;
+    font-size: 21px;
     background-color: #fbfbf9 !important;
-    background-image: radial-gradient(#d1d5db 1.2px, transparent 1.2px) !important;
-    background-size: 20px 20px !important;
-    color: #2c3e50 !important;
+    background-image: radial-gradient(#cbd5e1 1.4px, transparent 1.4px) !important;
+    background-size: 18px 18px !important;
+    color: #1e293b !important;
 }
 
-/* 손으로 그린 듯한 삐뚤빼뚤 카드 박스 */
-.sketch-card {
-    border: 2px solid #2b2b2b;
+/* 삐뚤빼뚤 손그림 카드 박스 */
+.sketch-box {
+    border: 2px solid #2d3748;
     border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
     padding: 16px 20px;
-    margin-bottom: 20px;
+    margin: 15px 0;
     background-color: #ffffff;
-    box-shadow: 3px 4px 0px #2b2b2b;
+    box-shadow: 3px 4px 0px #2d3748;
 }
 
-/* 형광펜 테두리 카드 (핑크색 강조) */
-.sketch-card-pink {
-    border: 3px solid #ff76ac;
-    border-radius: 12px 255px 15px 255px/255px 15px 255px 12px;
+/* 핑크 형광펜 테두리 카드 */
+.sketch-box-pink {
+    border: 3px solid #f472b6;
+    border-radius: 15px 225px 15px 255px/255px 15px 225px 15px;
     padding: 16px 20px;
-    margin-bottom: 20px;
+    margin: 15px 0;
     background-color: #ffffff;
-    box-shadow: 3px 4px 0px #ff76ac;
+    box-shadow: 3px 4px 0px #f472b6;
 }
 
-/* 형광펜 배지 라벨 (연두색) */
+/* 연두색 형광펜 뱃지 */
 .sketch-badge {
     display: inline-block;
     background-color: #bbf7d0;
     border: 1.5px solid #16a34a;
     border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
     padding: 2px 12px;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
     margin-bottom: 8px;
+    color: #166534;
 }
 
-/* 버튼: 손으로 칠한 주황/피치 톤 버튼 */
+/* 손으로 칠한 듯한 주황색 버튼 */
 .stButton > button {
     font-family: 'Gaegu', cursive !important;
     font-size: 22px !important;
     font-weight: 700 !important;
     background-color: #fed7aa !important;
-    color: #431407 !important;
-    border: 2px solid #2b2b2b !important;
+    color: #7c2d12 !important;
+    border: 2px solid #2d3748 !important;
     border-radius: 255px 25px 225px 25px/25px 225px 25px 255px !important;
-    box-shadow: 3px 4px 0px #2b2b2b !important;
+    box-shadow: 3px 4px 0px #2d3748 !important;
     transition: 0.1s ease-in-out;
 }
 .stButton > button:hover {
     transform: translate(2px, 2px);
-    box-shadow: 1px 2px 0px #2b2b2b !important;
+    box-shadow: 1px 2px 0px #2d3748 !important;
     background-color: #fdba74 !important;
 }
 
-/* 입력창 & 셀렉트박스 스케치 스타일 */
+/* 입력창 & 셀렉트박스 볼펜 테두리화 */
 div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
-    border: 2px solid #2b2b2b !important;
+    border: 2px solid #2d3748 !important;
     border-radius: 180px 15px 190px 15px/15px 190px 15px 180px !important;
     background-color: #ffffff !important;
-    box-shadow: 2px 2px 0px #9ca3af !important;
+    box-shadow: 2px 2px 0px #94a3b8 !important;
     font-family: 'Gaegu', cursive !important;
     font-size: 20px !important;
 }
 
-/* 구분선 스케치 점선 */
+/* 점선 구분선 */
 hr {
-    border-top: 2px dashed #9ca3af !important;
-    margin: 25px 0 !important;
+    border: none !important;
+    border-top: 2px dashed #94a3b8 !important;
+    margin: 24px 0 !important;
+}
+
+/* 지표(metric) 폰트 크기 조정 */
+[data-testid="stMetricValue"] {
+    font-size: 28px !important;
+    font-family: 'Gaegu', cursive !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. 로컬 환경용 .env 로드
+# 1. 로컬 환경용 .env 로드
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".env"))
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path=dotenv_path, override=True)
 
-# 4. API 키 안전 로드
+# 2. 키 조회 (Secrets 우선, 없을 시 os.getenv)
 WEATHER_API_KEY = None
 EXCHANGE_API_KEY = None
 
@@ -123,162 +133,243 @@ if not WEATHER_API_KEY:
 if not EXCHANGE_API_KEY:
     EXCHANGE_API_KEY = os.getenv("EXCHANGERATE_API_KEY")
 
-# 타이틀 헤더
-st.markdown("<h1 style='text-align: center; font-size: 45px;'>✏️ My Travel Diary</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 22px; color: #6b7280;'>Find your city weather & daily exchange rate</p>", unsafe_allow_html=True)
+# 메인 타이틀
+st.markdown("<h1 style='text-align: center; font-size: 44px; margin-bottom: 0;'>✏️ Visit & Travel Diary</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 22px; color: #64748b; margin-top: 4px;'>Find your city weather & live exchange rate</p>", unsafe_allow_html=True)
 
+# 3. 키 확인 및 안내
 if not WEATHER_API_KEY or not EXCHANGE_API_KEY:
-    st.error("API 키를 찾을 수 없습니다. Streamlit Cloud Secrets를 확인해주세요.")
+    st.error("🚨 API 키를 불러오지 못했습니다!")
+    st.write(f"- 날씨 키 상태: {'✅ 로드됨' if WEATHER_API_KEY else '❌ 누락됨'}")
+    st.write(f"- 환율 키 상태: {'✅ 로드됨' if EXCHANGE_API_KEY else '❌ 누락됨'}")
+    st.warning("우측 하단 Manage app -> Settings -> Secrets에 키를 입력하고 Save를 눌러주세요.")
     st.stop()
 
-# 5. 검색 컨트롤 영역 (핸드드로잉 카드)
-st.markdown('<div class="sketch-card">', unsafe_allow_html=True)
-st.markdown('<span class="sketch-badge">Where are you going?</span>', unsafe_allow_html=True)
+# 4. 상단 검색 인터페이스 카드
+st.markdown('<div class="sketch-box">', unsafe_allow_html=True)
+st.markdown('<span class="sketch-badge">Where to travel?</span>', unsafe_allow_html=True)
+
 c1, c2 = st.columns([2, 1])
 with c1:
-    city = st.text_input("목적지 도시 (영문)", value="Dublin", placeholder="예: Dublin, Tokyo, Paris, Seoul")
+    city = st.text_input("도시 이름 (영문 입력)", value="Seoul", placeholder="예: Seoul, Dublin, Tokyo, Paris")
 with c2:
-    base_currency = st.selectbox("기준 화폐", options=["USD", "EUR", "KRW", "JPY"], index=1)
+    base_currency = st.selectbox("환율 기준 통화", options=["USD", "KRW", "EUR", "JPY"], index=0)
 
-search_btn = st.button("🔎 수첩 펼쳐보기", use_container_width=True)
+search_trigger = st.button("📖 수첩 열어보기", type="primary", use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-if search_btn or city:
-    # -----------------------------
-    # 1) 날씨 & 환율 카드 섹션
-    # -----------------------------
-    col_left, col_right = st.columns(2)
+if not city.strip():
+    st.warning("도시 이름을 입력해주세요.")
+else:
+    weather_col, rate_col = st.columns(2)
 
-    with col_left:
-        st.markdown('<div class="sketch-card-pink">', unsafe_allow_html=True)
-        st.markdown(f'<span class="sketch-badge">Weather in {city.strip().capitalize()}</span>', unsafe_allow_html=True)
+    # -----------------------------
+    # 1) OpenWeatherMap 날씨 조회
+    # -----------------------------
+    with weather_col:
+        st.markdown('<div class="sketch-box-pink">', unsafe_allow_html=True)
+        st.markdown(f'<span class="sketch-badge">⛅ {city.strip().capitalize()} 날씨</span>', unsafe_allow_html=True)
         weather_url = "https://api.openweathermap.org/data/2.5/weather"
-        w_params = {"q": city.strip(), "appid": WEATHER_API_KEY, "units": "metric", "lang": "kr"}
+        w_params = {
+            "q": city.strip(),
+            "appid": WEATHER_API_KEY,
+            "units": "metric",
+            "lang": "kr"
+        }
 
         try:
             w_resp = requests.get(weather_url, params=w_params, timeout=5)
             w_data = w_resp.json()
-            if w_resp.status_code == 200:
-                temp = w_data["main"]["temp"]
-                feels = w_data["main"]["feels_like"]
-                desc = w_data["weather"][0]["description"]
-                humidity = w_data["main"]["humidity"]
-                icon = w_data["weather"][0]["icon"]
 
-                w_c1, w_c2 = st.columns([1, 1.5])
-                with w_c1:
-                    st.image(f"https://openweathermap.org/img/wn/{icon}@2x.png", width=85)
-                with w_c2:
-                    st.markdown(f"<h2 style='margin:0; font-size:38px;'>{temp:.1f}°C</h2>", unsafe_allow_html=True)
-                    st.write(f"체감: {feels:.1f}°C | {desc}")
-                st.write(f"💧 습도: {humidity}% | 💨 바람: {w_data['wind']['speed']} m/s")
+            if w_resp.status_code == 200:
+                weather_desc = w_data["weather"][0]["description"]
+                icon_code = w_data["weather"][0]["icon"]
+                temp = w_data["main"]["temp"]
+                feels_like = w_data["main"]["feels_like"]
+                humidity = w_data["main"]["humidity"]
+                wind_speed = w_data["wind"]["speed"]
+                country = w_data["sys"].get("country", "")
+
+                icon_url = f"https://openweathermap.org/img/wn/{icon_code}@2x.png"
+
+                sub1, sub2 = st.columns([1, 2])
+                with sub1:
+                    st.image(icon_url, width=80)
+                with sub2:
+                    st.write(f"**국가:** {country}")
+                    st.metric(label="현재 기온", value=f"{temp}°C", delta=f"체감 {feels_like}°C")
+
+                st.write(f"**상태:** {weather_desc}")
+                st.write(f"**습도:** {humidity}% | **풍속:** {wind_speed} m/s")
+
+            elif w_resp.status_code == 404:
+                st.error("도시를 찾을 수 없습니다. 영문 철자를 확인해주세요.")
+            elif w_resp.status_code == 401:
+                st.error("날씨 API 키가 인증되지 않았습니다.")
             else:
-                st.warning("도시를 찾을 수 없습니다.")
-        except Exception as e:
-            st.error(f"날씨 오류: {e}")
+                st.error(f"날씨 API 오류: {w_data.get('message', '알 수 없음')}")
+
+        except requests.exceptions.RequestException as e:
+            st.error(f"날씨 네트워크 오류: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_right:
-        st.markdown('<div class="sketch-card">', unsafe_allow_html=True)
-        st.markdown(f'<span class="sketch-badge">1 {base_currency} Real-time Rate</span>', unsafe_allow_html=True)
+    # -----------------------------
+    # 2) ExchangeRate-API 환율 조회
+    # -----------------------------
+    with rate_col:
+        st.markdown('<div class="sketch-box">', unsafe_allow_html=True)
+        st.markdown(f'<span class="sketch-badge">💵 실시간 환율 (1 {base_currency})</span>', unsafe_allow_html=True)
         rate_url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/latest/{base_currency}"
 
         try:
             r_resp = requests.get(rate_url, timeout=5)
             r_data = r_resp.json()
+
             if r_resp.status_code == 200 and r_data.get("result") == "success":
                 rates = r_data.get("conversion_rates", {})
-                targets = [c for c in ["KRW", "USD", "EUR", "JPY"] if c != base_currency]
-                for cur in targets:
-                    val = rates.get(cur, 0.0)
-                    st.write(f"👉 **1 {base_currency}** = **{val:,.2f} {cur}**")
+                last_update = r_data.get("time_last_update_utc", "")[:16]
+
+                target_currencies = ["KRW", "USD", "EUR", "JPY"]
+                target_currencies = [c for c in target_currencies if c != base_currency]
+
+                for cur in target_currencies:
+                    rate_val = rates.get(cur, 0.0)
+                    st.write(f"👉 **1 {base_currency}** = **{rate_val:,.2f} {cur}**")
+
+                st.caption(f"업데이트: {last_update} UTC")
+
+            elif r_data.get("error-type") == "invalid-key":
+                st.error("환율 API 키가 올바르지 않습니다.")
             else:
-                st.warning("환율을 불러오지 못했습니다.")
-        except Exception as e:
-            st.error(f"환율 오류: {e}")
+                st.error(f"환율 API 오류: {r_data.get('error-type', '알 수 없음')}")
+
+        except requests.exceptions.RequestException as e:
+            st.error(f"환율 네트워크 오류: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # -----------------------------
-    # 2) 일자별 환율 변동 추이 차트
+    # 3) 일자별 환율 변동 추이
     # -----------------------------
-    st.markdown('<div class="sketch-card">', unsafe_allow_html=True)
-    st.markdown('<span class="sketch-badge">Rate Trend Chart</span>', unsafe_allow_html=True)
+    st.markdown('<div class="sketch-box">', unsafe_allow_html=True)
+    st.markdown('<span class="sketch-badge">📈 일자별 환율 변동 추이</span>', unsafe_allow_html=True)
 
-    chart_c1, chart_c2, chart_c3 = st.columns(3)
-    with chart_c1:
-        chart_from = st.selectbox("기준 통화", options=["USD", "EUR", "JPY", "GBP"], index=1, key="c_from")
-    with chart_c2:
-        chart_to = st.selectbox("대상 통화", options=["KRW", "USD", "JPY", "EUR"], index=0, key="c_to")
-    with chart_c3:
-        period_label = st.selectbox("조회 기간", options=["최근 7일", "최근 1개월", "최근 3개월"], index=1)
+    chart_col1, chart_col2, chart_col3 = st.columns([1, 1, 1])
 
-    period_map = {"최근 7일": "7d", "최근 1개월": "1mo", "최근 3개월": "3mo"}
-    
-    if chart_from != chart_to:
-        ticker = yf.Ticker(f"{chart_from}{chart_to}=X")
-        hist = ticker.history(period=period_map[period_label], interval="1d")
+    with chart_col1:
+        chart_from = st.selectbox("기준 통화", options=["USD", "EUR", "JPY", "GBP"], index=0, key="chart_from")
+    with chart_col2:
+        chart_to = st.selectbox("대상 통화", options=["KRW", "USD", "JPY", "EUR"], index=0, key="chart_to")
+    with chart_col3:
+        period_label = st.selectbox("조회 기간", options=["최근 7일", "최근 1개월", "최근 3개월", "최근 1년"], index=1)
 
-        if not hist.empty:
-            chart_df = pd.DataFrame({
-                "날짜": hist.index.strftime("%m/%d"),
-                "환율": hist["Close"].round(2)
-            })
+    period_map = {
+        "최근 7일": "7d",
+        "최근 1개월": "1mo",
+        "최근 3개월": "3mo",
+        "최근 1년": "1y"
+    }
+    selected_period = period_map[period_label]
 
-            y_min = float(chart_df["환율"].min())
-            y_max = float(chart_df["환율"].max())
-            pad = (y_max - y_min) * 0.15 if y_max != y_min else 1.0
+    if chart_from == chart_to:
+        st.warning("서로 다른 통화를 선택해 주세요.")
+    else:
+        ticker_symbol = f"{chart_from}{chart_to}=X"
 
-            chart = (
-                alt.Chart(chart_df)
-                .mark_line(
-                    color="#2b2b2b",  # 손그림 펜 색상(진회색)
-                    strokeWidth=2.5,
-                    point=alt.OverlayMarkDef(filled=True, size=45, color="#ff76ac") # 핑크색 포인트 점
-                )
-                .encode(
-                    x=alt.X("날짜:N", title="일자", axis=alt.Axis(labelAngle=-45)),
-                    y=alt.Y("환율:Q", title=f"환율 ({chart_to})", scale=alt.Scale(domain=[y_min - pad, y_max + pad], zero=False)),
-                    tooltip=["날짜", "환율"]
-                )
-                .properties(height=260)
-            )
-            st.altair_chart(chart, use_container_width=True)
+        with st.spinner(f"{period_label} 데이터를 스케치북에 그리는 중..."):
+            try:
+                ticker = yf.Ticker(ticker_symbol)
+                hist = ticker.history(period=selected_period, interval="1d")
 
-            last_val = float(hist["Close"].iloc[-1])
-            start_val = float(hist["Close"].iloc[0])
-            diff = last_val - start_val
-            pct = (diff / start_val) * 100
+                if not hist.empty:
+                    chart_df = pd.DataFrame({
+                        "날짜": hist.index.strftime("%m/%d"),
+                        "종가 환율": hist["Close"].round(2)
+                    })
 
-            m1, m2, m3 = st.columns(3)
-            m1.metric("마감 환율", f"{last_val:,.2f}")
-            m2.metric(f"{period_label} 변동", f"{diff:+,.2f}", f"{pct:+.2f}%")
-            m3.metric("최고 / 최저", f"{hist['High'].max():,.2f}", f"최저 {hist['Low'].min():,.2f}", delta_color="off")
+                    y_min = float(chart_df["종가 환율"].min())
+                    y_max = float(chart_df["종가 환율"].max())
+                    padding = (y_max - y_min) * 0.15 if y_max != y_min else 1.0
+
+                    chart = (
+                        alt.Chart(chart_df)
+                        .mark_line(
+                            color="#2d3748",  # 손그림 펜 선 색상
+                            strokeWidth=2.5,
+                            point=alt.OverlayMarkDef(filled=True, size=50, color="#f472b6")  # 핑크 형광 포인트
+                        )
+                        .encode(
+                            x=alt.X("날짜:N", title="날짜", axis=alt.Axis(labelAngle=-45)),
+                            y=alt.Y(
+                                "종가 환율:Q",
+                                title=f"환율 ({chart_to})",
+                                scale=alt.Scale(domain=[y_min - padding, y_max + padding], zero=False),
+                                axis=alt.Axis(format=",.2f")
+                            ),
+                            tooltip=["날짜", "종가 환율"]
+                        )
+                        .properties(height=280)
+                        .interactive()
+                    )
+
+                    st.altair_chart(chart, use_container_width=True)
+
+                    start_val = float(hist["Close"].iloc[0])
+                    latest_val = float(hist["Close"].iloc[-1])
+                    diff = latest_val - start_val
+                    pct_diff = (diff / start_val) * 100
+
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric(label="최근 마감 환율", value=f"{latest_val:,.2f} {chart_to}")
+                    m2.metric(label=f"{period_label} 변동폭", value=f"{diff:+,.2f}", delta=f"{pct_diff:+.2f}%")
+                    m3.metric(
+                        label="기간 최고 / 최저",
+                        value=f"{hist['High'].max():,.2f}",
+                        delta=f"최저 {hist['Low'].min():,.2f}",
+                        delta_color="off"
+                    )
+                else:
+                    st.info("선택한 통화쌍의 일별 데이터가 없습니다.")
+
+            except Exception as e:
+                st.error(f"환율 차트 데이터를 가져오지 못했습니다: {e}")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # -----------------------------
-    # 3) 실시간 환율 계산기
+    # 4) 실시간 환율 계산기
     # -----------------------------
-    st.markdown('<div class="sketch-card-pink">', unsafe_allow_html=True)
-    st.markdown('<span class="sketch-badge">Quick Currency Calculator</span>', unsafe_allow_html=True)
+    st.markdown('<div class="sketch-box-pink">', unsafe_allow_html=True)
+    st.markdown('<span class="sketch-badge">🧮 실시간 환율 계산기</span>', unsafe_allow_html=True)
 
-    calc1, calc2, calc3 = st.columns([2, 1, 1])
-    with calc1:
-        amount = st.number_input("환전할 금액", min_value=0.0, value=77.0, step=10.0, format="%.2f")
-    with calc2:
-        calc_from = st.selectbox("From", ["EUR", "USD", "KRW", "JPY"], index=0, key="calc_from")
-    with calc3:
-        calc_to = st.selectbox("To", ["KRW", "USD", "EUR", "JPY"], index=0, key="calc_to")
+    calc_col1, calc_col2, calc_col3 = st.columns([2, 1, 1])
+
+    with calc_col1:
+        amount = st.number_input("금액 입력", min_value=0.0, value=77.0, step=10.0, format="%.2f")
+
+    currency_list = ["USD", "KRW", "EUR", "JPY", "CNY", "GBP", "CAD", "AUD"]
+
+    with calc_col2:
+        from_currency = st.selectbox("보낸 통화 (From)", options=currency_list, index=0)
+
+    with calc_col3:
+        to_currency = st.selectbox("받을 통화 (To)", options=currency_list, index=1)
 
     if st.button("✏️ 계산하기", use_container_width=True):
-        if calc_from == calc_to:
-            st.info(f"{amount:,.2f} {calc_from} = {amount:,.2f} {calc_to}")
+        if from_currency == to_currency:
+            st.info(f"**결과:** {amount:,.2f} {from_currency} = **{amount:,.2f} {to_currency}**")
         else:
-            c_url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/pair/{calc_from}/{calc_to}/{amount}"
+            calc_url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/pair/{from_currency}/{to_currency}/{amount}"
             try:
-                res = requests.get(c_url, timeout=5).json()
-                if res.get("result") == "success":
-                    ans = res.get("conversion_result", 0.0)
-                    st.markdown(f"<h3 style='text-align: center; color: #be185d;'>{amount:,.2f} {calc_from} ➡️ {ans:,.2f} {calc_to}</h3>", unsafe_allow_html=True)
-            except Exception as e:
-                st.error(f"계산 실패: {e}")
+                c_resp = requests.get(calc_url, timeout=5)
+                c_data = c_resp.json()
+
+                if c_resp.status_code == 200 and c_data.get("result") == "success":
+                    converted_result = c_data.get("conversion_result", 0.0)
+                    unit_rate = c_data.get("conversion_rate", 0.0)
+
+                    st.markdown(f"<h3 style='text-align: center; color: #be185d; margin: 10px 0;'>{amount:,.2f} {from_currency} ➡️ {converted_result:,.2f} {to_currency}</h3>", unsafe_allow_html=True)
+                    st.caption(f"적용 환율: 1 {from_currency} = {unit_rate:,.4f} {to_currency}")
+                else:
+                    st.error(f"환율 계산 오류: {c_data.get('error-type', '알 수 없음')}")
+            except requests.exceptions.RequestException as e:
+                st.error(f"네트워크 오류: {e}")
     st.markdown('</div>', unsafe_allow_html=True)
