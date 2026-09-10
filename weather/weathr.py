@@ -135,7 +135,11 @@ if not WEATHER_API_KEY or not EXCHANGE_API_KEY:
     st.warning("우측 하단 Manage app -> Settings -> Secrets에 키를 입력하고 Save를 눌러주세요.")
     st.stop()
 
-# 4. 상단 검색 인터페이스 카드 (컨테이너 내부 배치로 입력창 정상 노출)
+# 4. 수첩 상태(Session State) 초기화
+if "opened" not in st.session_state:
+    st.session_state.opened = False
+
+# 5. 상단 검색 카드
 with st.container(border=True):
     st.markdown('<span class="sketch-badge">Where to travel?</span>', unsafe_allow_html=True)
     c1, c2 = st.columns([2, 1])
@@ -144,11 +148,16 @@ with st.container(border=True):
     with c2:
         base_currency = st.selectbox("환율 기준 통화", options=["USD", "KRW", "EUR", "JPY"], index=0)
 
-    search_trigger = st.button("📖 수첩 열어보기", type="primary", use_container_width=True)
+    # 버튼 클릭 시 session_state를 True로 변경
+    if st.button("📖 수첩 열어보기", type="primary", use_container_width=True):
+        if not city.strip():
+            st.warning("도시 이름을 입력해주세요.")
+            st.session_state.opened = False
+        else:
+            st.session_state.opened = True
 
-if not city.strip():
-    st.warning("도시 이름을 입력해주세요.")
-else:
+# 6. 버튼을 눌렀을 때만 하단 내용 표시
+if st.session_state.opened and city.strip():
     col_weather, col_rate = st.columns(2)
 
     # -----------------------------
