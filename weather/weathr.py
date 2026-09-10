@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone, timedelta
 import requests
 import streamlit as st
 import pandas as pd
@@ -20,7 +21,6 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
 
-/* 전체 배경: 모눈종이 도트 패턴 및 손글씨 폰트 */
 html, body, [class*="css"], .stApp {
     font-family: 'Gaegu', cursive !important;
     font-size: 21px;
@@ -71,7 +71,7 @@ html, body, [class*="css"], .stApp {
     background-color: #fdba74 !important;
 }
 
-/* 입력창 및 선택창 손그림 스타일 */
+/* 입력창 및 셀렉트박스 */
 div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
     border: 2px solid #2d3748 !important;
     border-radius: 180px 15px 190px 15px/15px 190px 15px 180px !important;
@@ -81,14 +81,12 @@ div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
     font-size: 20px !important;
 }
 
-/* 점선 구분선 */
 hr {
     border: none !important;
     border-top: 2px dashed #94a3b8 !important;
     margin: 24px 0 !important;
 }
 
-/* 통계 메트릭 폰트 */
 [data-testid="stMetricValue"] {
     font-size: 28px !important;
     font-family: 'Gaegu', cursive !important;
@@ -123,69 +121,100 @@ if not WEATHER_API_KEY:
 if not EXCHANGE_API_KEY:
     EXCHANGE_API_KEY = os.getenv("EXCHANGERATE_API_KEY")
 
-# 메인 타이틀 헤더
 st.markdown("<h1 style='text-align: center; font-size: 44px; margin-bottom: 0;'>✏️ Visit & Travel Diary</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 22px; color: #64748b; margin-top: 4px;'>Find your city weather & live exchange rate</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 22px; color: #64748b; margin-top: 4px;'>도시별 날씨, 현지 시각, 일별 환율 다이어리</p>", unsafe_allow_html=True)
 
-# 3. 키 확인 및 배포 안내
 if not WEATHER_API_KEY or not EXCHANGE_API_KEY:
-    st.error("🚨 API 키를 불러오지 못했습니다!")
-    st.write(f"- 날씨 키 상태: {'✅ 로드됨' if WEATHER_API_KEY else '❌ 누락됨'}")
-    st.write(f"- 환율 키 상태: {'✅ 로드됨' if EXCHANGE_API_KEY else '❌ 누락됨'}")
-    st.warning("우측 하단 Manage app -> Settings -> Secrets에 키를 입력하고 Save를 눌러주세요.")
+    st.error("🚨 API 키를 불러오지 못했습니다! Streamlit Secrets를 확인해주세요.")
     st.stop()
 
-# 4. 수첩 상태(Session State) 초기화
+# 3. 주요 여행 도시 및 통화 매핑 목록
+DESTINATIONS = {
+    "아일랜드 (더블린)": {"city": "Dublin", "currency": "EUR"},
+    "일본 (도쿄)": {"city": "Tokyo", "currency": "JPY"},
+    "미국 (뉴욕)": {"city": "New York", "currency": "USD"},
+    "영국 (런던)": {"city": "London", "currency": "GBP"},
+    "프랑스 (파리)": {"city": "Paris", "currency": "EUR"},
+    "베트남 (다낭)": {"city": "Da Nang", "currency": "USD"},
+    "싱가포르 (싱가포르)": {"city": "Singapore", "currency": "SGD"},
+    "대만 (타이베이)": {"city": "Taipei", "currency": "TWD"},
+    "호주 (시드니)": {"city": "Sydney", "currency": "AUD"},
+    "한국 (서울)": {"city": "Seoul", "currency": "KRW"}
+}
+
+def get_outfit_advice(temp, weather_desc):
+    advice = []
+    if temp >= 28:
+        advice.append("☀️ 매우 더워요! 민소매, 반바지, 린넨 의류와 선크림 필수.")
+    elif 23 <= temp < 28:
+        advice.append("👕 쾌적한 초여름 날씨예요. 반팔, 얇은 셔츠, 면바지를 추천해요.")
+    elif 17 <= temp < 23:
+        advice.append("🍂 가벼운 겉옷이 필요한 날씨예요. 긴팔 티, 얇은 가디건, 바람막이를 챙기세요.")
+    elif 12 <= temp < 17:
+        advice.append("🧥 쌀쌀해요. 자켓, 가디건, 니트, 맨투맨을 걸치는 것이 좋아요.")
+    elif 6 <= temp < 12:
+        advice.append("🧣 추워요! 코트, 가죽자켓, 두꺼운 니트에 히트텍을 레이어드하세요.")
+    else:
+        advice.append("❄️ 한겨울 추위예요! 두꺼운 패딩, 목도리, 장갑으로 방한에 신경 쓰세요.")
+
+    if any(k in weather_desc for k in ["비", "소나기", "rain"]):
+        advice.append("☔ 비 예보가 있으니 가방에 가벼운 3단 접이식 우산을 챙기세요!")
+    elif any(k in weather_desc for k in ["눈", "snow"]):
+        advice.append("☃️ 눈이 오거나 얼 수 있으니 미끄럽지 않은 신발을 신으세요!")
+    return advice
+
 if "opened" not in st.session_state:
     st.session_state.opened = False
 
-# 5. 상단 검색 카드
+# 4. 여행지 선택 컨트롤
 with st.container(border=True):
     st.markdown('<span class="sketch-badge">Where to travel?</span>', unsafe_allow_html=True)
     c1, c2 = st.columns([2, 1])
     with c1:
-        city = st.text_input("도시 이름 (영문 입력)", value="Seoul", placeholder="예: Seoul, Dublin, Tokyo, Paris")
+        selected_dest_label = st.selectbox("여행할 나라 / 도시 선택", options=list(DESTINATIONS.keys()), index=0)
     with c2:
-        base_currency = st.selectbox("환율 기준 통화", options=["USD", "KRW", "EUR", "JPY"], index=0)
+        selected_info = DESTINATIONS[selected_dest_label]
+        base_currency = st.selectbox(
+            "기준 화폐",
+            options=["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"],
+            index=["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"].index(selected_info["currency"]) if selected_info["currency"] in ["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"] else 0
+        )
 
-    # 버튼 클릭 시 session_state를 True로 변경
     if st.button("📖 수첩 열어보기", type="primary", use_container_width=True):
-        if not city.strip():
-            st.warning("도시 이름을 입력해주세요.")
-            st.session_state.opened = False
-        else:
-            st.session_state.opened = True
+        st.session_state.opened = True
 
-# 6. 버튼을 눌렀을 때만 하단 내용 표시
-if st.session_state.opened and city.strip():
+# 5. 수첩 내용 출력
+if st.session_state.opened:
+    city_en = selected_info["city"]
     col_weather, col_rate = st.columns(2)
 
-    # -----------------------------
-    # 1) OpenWeatherMap 날씨 카드
-    # -----------------------------
+    temp_val = 20.0
+    weather_desc_val = ""
+
+    # 1) 날씨 및 실시간 현지 시각 카드
     with col_weather:
         with st.container(border=True):
-            st.markdown(f'<span class="sketch-badge">⛅ {city.strip().capitalize()} 날씨</span>', unsafe_allow_html=True)
+            st.markdown(f'<span class="sketch-badge">⛅ {selected_dest_label} 날씨 & 시각</span>', unsafe_allow_html=True)
             weather_url = "https://api.openweathermap.org/data/2.5/weather"
-            w_params = {
-                "q": city.strip(),
-                "appid": WEATHER_API_KEY,
-                "units": "metric",
-                "lang": "kr"
-            }
+            w_params = {"q": city_en, "appid": WEATHER_API_KEY, "units": "metric", "lang": "kr"}
 
             try:
                 w_resp = requests.get(weather_url, params=w_params, timeout=5)
                 w_data = w_resp.json()
 
                 if w_resp.status_code == 200:
-                    weather_desc = w_data["weather"][0]["description"]
+                    weather_desc_val = w_data["weather"][0]["description"]
                     icon_code = w_data["weather"][0]["icon"]
-                    temp = w_data["main"]["temp"]
+                    temp_val = w_data["main"]["temp"]
                     feels_like = w_data["main"]["feels_like"]
                     humidity = w_data["main"]["humidity"]
                     wind_speed = w_data["wind"]["speed"]
-                    country = w_data["sys"].get("country", "")
+                    
+                    # OpenWeatherMap 타임존 오프셋(초) 기반 현지 시각 계산
+                    tz_offset_sec = w_data.get("timezone", 0)
+                    local_time = datetime.now(timezone.utc) + timedelta(seconds=tz_offset_sec)
+                    kst_time = datetime.now(timezone.utc) + timedelta(hours=9)
+                    time_diff_hours = int(tz_offset_sec / 3600) - 9
 
                     icon_url = f"https://openweathermap.org/img/wn/{icon_code}@2x.png"
 
@@ -193,25 +222,19 @@ if st.session_state.opened and city.strip():
                     with sub1:
                         st.image(icon_url, width=80)
                     with sub2:
-                        st.write(f"**국가:** {country}")
-                        st.metric(label="현재 기온", value=f"{temp}°C", delta=f"체감 {feels_like}°C")
+                        st.metric(label="현재 기온", value=f"{temp_val:.1f}°C", delta=f"체감 {feels_like:.1f}°C")
 
-                    st.write(f"**상태:** {weather_desc}")
-                    st.write(f"**습도:** {humidity}% | **풍속:** {wind_speed} m/s")
+                    st.write(f"**상태:** {weather_desc_val} | **습도:** {humidity}% | **바람:** {wind_speed} m/s")
+                    st.divider()
+                    st.write(f"🕒 **현지 시각:** {local_time.strftime('%Y-%m-%d %H:%M')}")
+                    st.caption(f"한국 대비 시차: {'동일' if time_diff_hours == 0 else f'{time_diff_hours:+d}시간'}")
 
-                elif w_resp.status_code == 404:
-                    st.error("도시를 찾을 수 없습니다. 영문 철자를 확인해주세요.")
-                elif w_resp.status_code == 401:
-                    st.error("날씨 API 키가 인증되지 않았습니다.")
                 else:
-                    st.error(f"날씨 API 오류: {w_data.get('message', '알 수 없음')}")
-
+                    st.error("날씨 데이터를 불러오지 못했습니다.")
             except requests.exceptions.RequestException as e:
                 st.error(f"날씨 네트워크 오류: {e}")
 
-    # -----------------------------
-    # 2) ExchangeRate-API 실시간 환율 카드
-    # -----------------------------
+    # 2) 실시간 환율 카드
     with col_rate:
         with st.container(border=True):
             st.markdown(f'<span class="sketch-badge">💵 실시간 환율 (1 {base_currency})</span>', unsafe_allow_html=True)
@@ -225,7 +248,7 @@ if st.session_state.opened and city.strip():
                     rates = r_data.get("conversion_rates", {})
                     last_update = r_data.get("time_last_update_utc", "")[:16]
 
-                    target_currencies = ["KRW", "USD", "EUR", "JPY"]
+                    target_currencies = ["KRW", "USD", "EUR", "JPY", "GBP"]
                     target_currencies = [c for c in target_currencies if c != base_currency]
 
                     for cur in target_currencies:
@@ -233,23 +256,23 @@ if st.session_state.opened and city.strip():
                         st.write(f"👉 **1 {base_currency}** = **{rate_val:,.2f} {cur}**")
 
                     st.caption(f"업데이트: {last_update} UTC")
-
-                elif r_data.get("error-type") == "invalid-key":
-                    st.error("환율 API 키가 올바르지 않습니다.")
                 else:
-                    st.error(f"환율 API 오류: {r_data.get('error-type', '알 수 없음')}")
-
+                    st.error("환율 API 오류가 발생했습니다.")
             except requests.exceptions.RequestException as e:
                 st.error(f"환율 네트워크 오류: {e}")
 
-    # -----------------------------
-    # 3) 일자별 환율 변동 추이 카드
-    # -----------------------------
+    # 3) 기온별 옷차림 & 여행 팁 카드
+    with st.container(border=True):
+        st.markdown('<span class="sketch-badge">🎒 오늘 추천 옷차림 & 여행 메모</span>', unsafe_allow_html=True)
+        advice_list = get_outfit_advice(temp_val, weather_desc_val)
+        for adv in advice_list:
+            st.write(f"- {adv}")
+
+    # 4) 일자별 환율 변동 추이 카드
     with st.container(border=True):
         st.markdown('<span class="sketch-badge">📈 일자별 환율 변동 추이</span>', unsafe_allow_html=True)
 
         chart_col1, chart_col2, chart_col3 = st.columns([1, 1, 1])
-
         with chart_col1:
             chart_from = st.selectbox("기준 통화", options=["USD", "EUR", "JPY", "GBP"], index=0, key="chart_from")
         with chart_col2:
@@ -257,23 +280,16 @@ if st.session_state.opened and city.strip():
         with chart_col3:
             period_label = st.selectbox("조회 기간", options=["최근 7일", "최근 1개월", "최근 3개월", "최근 1년"], index=1)
 
-        period_map = {
-            "최근 7일": "7d",
-            "최근 1개월": "1mo",
-            "최근 3개월": "3mo",
-            "최근 1년": "1y"
-        }
-        selected_period = period_map[period_label]
+        period_map = {"최근 7일": "7d", "최근 1개월": "1mo", "최근 3개월": "3mo", "최근 1년": "1y"}
 
         if chart_from == chart_to:
             st.warning("서로 다른 통화를 선택해 주세요.")
         else:
             ticker_symbol = f"{chart_from}{chart_to}=X"
-
-            with st.spinner(f"{period_label} 데이터를 스케치하는 중..."):
+            with st.spinner("일별 데이터를 스케치하는 중..."):
                 try:
                     ticker = yf.Ticker(ticker_symbol)
-                    hist = ticker.history(period=selected_period, interval="1d")
+                    hist = ticker.history(period=period_map[period_label], interval="1d")
 
                     if not hist.empty:
                         chart_df = pd.DataFrame({
@@ -324,26 +340,21 @@ if st.session_state.opened and city.strip():
                         )
                     else:
                         st.info("선택한 통화쌍의 일별 데이터가 없습니다.")
-
                 except Exception as e:
                     st.error(f"환율 차트 데이터를 가져오지 못했습니다: {e}")
 
-    # -----------------------------
-    # 4) 실시간 환율 계산기 카드
-    # -----------------------------
+    # 5) 실시간 환율 계산기 카드
     with st.container(border=True):
         st.markdown('<span class="sketch-badge">🧮 실시간 환율 계산기</span>', unsafe_allow_html=True)
 
         calc_col1, calc_col2, calc_col3 = st.columns([2, 1, 1])
-
         with calc_col1:
-            amount = st.number_input("금액 입력", min_value=0.0, value=77.0, step=10.0, format="%.2f")
+            amount = st.number_input("금액 입력", min_value=0.0, value=100.0, step=10.0, format="%.2f")
 
-        currency_list = ["USD", "KRW", "EUR", "JPY", "CNY", "GBP", "CAD", "AUD"]
+        currency_list = ["USD", "KRW", "EUR", "JPY", "CNY", "GBP", "CAD", "AUD", "SGD", "TWD"]
 
         with calc_col2:
-            from_currency = st.selectbox("보낸 통화 (From)", options=currency_list, index=0)
-
+            from_currency = st.selectbox("보낸 통화 (From)", options=currency_list, index=currency_list.index(base_currency) if base_currency in currency_list else 0)
         with calc_col3:
             to_currency = st.selectbox("받을 통화 (To)", options=currency_list, index=1)
 
