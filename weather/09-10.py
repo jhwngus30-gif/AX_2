@@ -1,12 +1,12 @@
 import os
-from pathlib import Path
 import requests
 import streamlit as st
 from dotenv import load_dotenv
 
-# 1. 파일 경로 기반 .env 절대 경로 지정 (weather 폴더의 상위 폴더인 AX_2 폴더)
-BASE_DIR = Path(__file__).resolve().parent.parent
-dotenv_path = BASE_DIR / '.env'
+# 1. os.path 기반 상위 폴더의 .env 절대 경로 지정
+# weather 폴더 기준 상위 폴더(AX_2)로 1단계 이동
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".env"))
 
 # .env 파일 강제 로드 (override=True)
 is_loaded = load_dotenv(dotenv_path=dotenv_path, override=True)
@@ -29,20 +29,21 @@ if not WEATHER_API_KEY or not EXCHANGE_API_KEY:
     st.error("`.env` 파일에서 필요한 API 키를 불러올 수 없습니다.")
     
     with st.expander("🔍 문제 해결 체크리스트 (클릭하여 확인)", expanded=True):
+        st.write(f"- **현재 파일 폴더:** `{CURRENT_DIR}`")
         st.write(f"- **탐색한 .env 파일 경로:** `{dotenv_path}`")
-        st.write(f"- **해당 위치에 .env 파일 존재 여부:** `{dotenv_path.exists()}`")
+        st.write(f"- **해당 위치에 .env 파일 존재 여부:** `{os.path.exists(dotenv_path)}`")
         st.write(f"- **날씨 API 키 로드 여부:** {'✅ 정상' if WEATHER_API_KEY else '❌ 없음'}")
         st.write(f"- **환율 API 키 로드 여부:** {'✅ 정상' if EXCHANGE_API_KEY else '❌ 없음'}")
         
         st.markdown("""
         **확인할 사항:**
-        1. 좌측 탐색기 `AX_2` 바로 아래에 있는 `.env` 파일을 열어 `Ctrl + S`로 꼭 저장했는지 확인하세요.
+        1. 좌측 탐색기 상위 폴더 바로 아래에 있는 `.env` 파일을 열어 `Ctrl + S`로 꼭 저장했는지 확인하세요.
         2. `.env` 파일 안에 변수명이 정확한지 확인하세요:
            ```env
            OPENWEATHER_API_KEY=발급받은_날씨_키
            EXCHANGERATE_API_KEY=발급받은_환율_키
            ```
-        3. 등호(`=`) 앞뒤에 띄어쓰기 공백이 없어야 하며, 따옴표(`"`, `'`) 없이 키만 입력해야 합니다.
+        3. 등호(`=`) 앞뒤에 공백이 없어야 하며, 따옴표(`"`, `'`) 없이 키만 입력해야 합니다.
         """)
     st.stop()
 
@@ -58,7 +59,6 @@ if st.button("조회하기", type="primary", use_container_width=True):
     if not city.strip():
         st.warning("도시 이름을 입력해주세요.")
     else:
-        # 좌우 2개 컬럼 분할 (왼쪽: 날씨, 오른쪽: 환율)
         weather_col, rate_col = st.columns(2)
 
         # -----------------------------
