@@ -3,30 +3,35 @@ import requests
 import streamlit as st
 from dotenv import load_dotenv
 
-# Streamlit 기본 설정 (반드시 최상단에 위치)
+# Streamlit 기본 설정
 st.set_page_config(
     page_title="날씨 & 환율 대시보드",
     page_icon="🌍",
     layout="wide"
 )
 
-# 1. 로컬 환경용 .env 로드 (배포 환경에서는 파일이 없어도 에러 없이 통과)
+# 1. 로컬 환경용 .env 로드
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".env"))
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path=dotenv_path, override=True)
 
-# 2. API 키 안전 로드 (Streamlit Cloud Secrets 오류 방지)
+# 2. 키 조회 (Secrets 우선, 없을 시 os.getenv)
 WEATHER_API_KEY = None
 EXCHANGE_API_KEY = None
 
 try:
-    WEATHER_API_KEY = st.secrets.get("OPENWEATHER_API_KEY")
-    EXCHANGE_API_KEY = st.secrets.get("EXCHANGERATE_API_KEY")
+    if "OPENWEATHER_API_KEY" in st.secrets:
+        WEATHER_API_KEY = st.secrets["OPENWEATHER_API_KEY"]
 except Exception:
     pass
 
-# Secrets에 등록되어 있지 않다면 로컬 환경변수(.env)에서 로드
+try:
+    if "EXCHANGERATE_API_KEY" in st.secrets:
+        EXCHANGE_API_KEY = st.secrets["EXCHANGERATE_API_KEY"]
+except Exception:
+    pass
+
 if not WEATHER_API_KEY:
     WEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 if not EXCHANGE_API_KEY:
@@ -35,18 +40,12 @@ if not EXCHANGE_API_KEY:
 st.title("🌍 실시간 날씨 및 환율 정보 서비스")
 st.caption("OpenWeatherMap API & ExchangeRate-API 연동")
 
-# 3. 키 확인 및 배포 환경 안내
+# 3. 키 확인 및 안내
 if not WEATHER_API_KEY or not EXCHANGE_API_KEY:
-    st.error("API 키를 불러올 수 없습니다. 설정을 확인해주세요.")
-    st.info("""
-    **Streamlit Cloud 배포 환경 안내:**
-    1. 우측 하단 **Manage app** -> **Settings (⋮)** -> **Secrets** 클릭
-    2. 아래 내용을 입력 후 **Save**를 눌러 저장하세요:
-    ```toml
-    OPENWEATHER_API_KEY = "발급받은_날씨_API키"
-    EXCHANGERATE_API_KEY = "발급받은_환율_API키"
-    ```
-    """)
+    st.error("🚨 API 키를 불러오지 못했습니다!")
+    st.write(f"- 날씨 키 상태: {'✅ 로드됨' if WEATHER_API_KEY else '❌ 누락됨'}")
+    st.write(f"- 환율 키 상태: {'✅ 로드됨' if EXCHANGE_API_KEY else '❌ 누락됨'}")
+    st.warning("우측 하단 Manage app -> Settings -> Secrets에 키를 입력하고 Save를 눌러주세요.")
     st.stop()
 
 # 4. 사용자 입력 인터페이스
@@ -143,3 +142,42 @@ if st.button("조회하기", type="primary", use_container_width=True):
 
             except requests.exceptions.RequestException as e:
                 st.error(f"환율 네트워크 오류: {e}")
+
+# -----------------------------
+# 3) 실시간 환율 계산기
+# -----------------------------
+st.divider()
+st.subheader("🧮 실시간 환율 계산기")
+
+calc_col1, calc_col2, calc_col3 = st.columns([2, 1, 1])
+
+with calc_col1:
+    amount = st.number_input("금액 입력", min_value=0.0, value=1.0, step=10.0, format="%.2f")
+
+currency_list = ["USD", "KRW", "EUR", "JPY", "CNY", "GBP", "CAD", "AUD"]
+
+with calc_col2:
+    from_currency = st.selectbox("보낸 통화 (From)", options=currency_list, index=0)
+
+with calc_col3:
+    to_currency = st.selectbox("받을 통화 (To)", options=currency_list, index=1)
+
+if st.button("계산하기", use_container_width=True):
+    if from_currency == to_currency:
+        st.info(f"**결과:** {amount:,.2f} {from_currency} = **{amount:,.2f} {to_currency}**")
+    else:
+        calc_url = f"https://v6.exchangerate-api.com/v6/{EXCHANGE_API_KEY}/pair/{from_currency}/{to_currency}/{amount}"
+        try:
+            c_resp = requests.get(calc_url, timeout=5)
+            c_data = c_resp.json()
+
+            if c_resp.status_code == 200 and c_data.get("result") == "success":
+                converted_result = c_data.get("conversion_result", 0.0)
+                unit_rate = c_data.get("conversion_rate", 0.0)
+
+                st.success(f"### {amount:,.2f} {from_currency} = **{converted_result:,.2f} {to_currency}**")
+                st.caption(f"적용 환율: 1 {from_currency} = {unit_rate:,.4f} {to_currency}")
+            else:
+                st.error(f"환율 계산 오류: {c_data.get('error-type', '알 수 없음')}")
+        except requests.exceptions.RequestException as e:
+            st.error(f"네트워크 오류: {e}")
