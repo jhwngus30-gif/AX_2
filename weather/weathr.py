@@ -1,4 +1,5 @@
 import os
+import base64
 from datetime import datetime, timezone, timedelta
 import requests
 import streamlit as st
@@ -15,116 +16,160 @@ st.set_page_config(
 )
 
 # -----------------------------
-# 0) 모든 텍스트 일괄 폰트 적용 커스텀 CSS
+# 0) '온글잎 콘콘체' 로드 및 화면 복원 CSS
 # -----------------------------
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-/* 전체 앱 및 모든 하위 텍스트 태그에 손글씨 폰트 일괄 강제 적용 */
+# 폰트 파일 탐색 경로 (온글잎 콘콘체.ttf 우선 탐색)
+possible_font_paths = [
+    os.path.abspath(os.path.join(CURRENT_DIR, "..", "font", "온글잎 콘콘체.ttf")),
+    os.path.abspath(os.path.join(CURRENT_DIR, "font", "온글잎 콘콘체.ttf")),
+    os.path.abspath(os.path.join(CURRENT_DIR, "온글잎 콘콘체.ttf")),
+    os.path.abspath(os.path.join(CURRENT_DIR, "..", "font", "custom_font.ttf")),
+]
+
+font_base64 = ""
+for f_path in possible_font_paths:
+    if os.path.exists(f_path):
+        with open(f_path, "rb") as f:
+            font_base64 = base64.b64encode(f.read()).decode()
+        break
+
+if font_base64:
+    font_face_rule = f"""
+    @font-face {{
+        font-family: 'OwnglyphConcon';
+        src: url(data:font/truetype;charset=utf-8;base64,{font_base64}) format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }}
+    """
+    target_font = "'OwnglyphConcon', 'Gaegu', cursive"
+else:
+    font_face_rule = """
+    @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
+    """
+    target_font = "'Gaegu', cursive"
+
+st.markdown(f"""
+<style>
+{font_face_rule}
+
+/* 전체 텍스트에 온글잎 콘콘체 일괄 적용 */
 html, body, [class*="css"], .stApp, 
 h1, h2, h3, h4, h5, h6, p, span, div, label, input, button, select, 
-.stMarkdown, .stText, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
-    font-family: 'Gaegu', cursive !important;
-}
+.stMarkdown, .stText, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {{
+    font-family: {target_font} !important;
+    color: #1e293b !important;
+    letter-spacing: 0.3px !important;
+}}
 
-/* 기본 배경: 모눈종이 도트 패턴 */
-.stApp {
-    font-size: 22px;
+/* 배경화면: 이미지와 동일한 연한 도트 모눈종이 복원 */
+.stApp {{
+    font-size: 21px;
     background-color: #fbfbf9 !important;
     background-image: radial-gradient(#cbd5e1 1.4px, transparent 1.4px) !important;
     background-size: 18px 18px !important;
-    color: #1e293b !important;
-}
+}}
 
-/* 헤더 타이틀 폰트 크기 및 간격 */
-.main-title {
-    font-family: 'Gaegu', cursive !important;
+/* 상단 타이틀 & 서브 타이틀 */
+.main-title {{
     text-align: center;
     font-size: 46px;
-    font-weight: 700;
-    margin-bottom: 0px;
-    color: #1e293b;
-}
+    margin-bottom: 2px;
+    color: #1e293b !important;
+}}
 
-.sub-title {
-    font-family: 'Gaegu', cursive !important;
+.sub-title {{
     text-align: center;
-    font-size: 24px;
-    color: #64748b;
-    margin-top: 4px;
+    font-size: 22px;
+    color: #64748b !important;
+    margin-top: 2px;
     margin-bottom: 25px;
-}
+}}
 
-/* Streamlit 테두리 컨테이너를 비대칭 손그림 카드로 변환 */
-[data-testid="stVerticalBlockBorderWrapper"] > div {
+/* 좌우 컬럼 높이 자동 정렬 */
+[data-testid="stColumn"] {{
+    display: flex !important;
+    flex-direction: column !important;
+}}
+
+[data-testid="stColumn"] > div {{
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+}}
+
+/* 컨테이너 카드: 손그림 둥근 테두리 및 그림자 복원 */
+[data-testid="stVerticalBlockBorderWrapper"] > div {{
     border: 2px solid #2d3748 !important;
     border-radius: 255px 15px 225px 15px/15px 225px 15px 255px !important;
     background-color: #ffffff !important;
     box-shadow: 3px 4px 0px #2d3748 !important;
     padding: 18px 22px !important;
     margin-bottom: 20px !important;
-}
+    height: 100% !important;
+    min-height: 390px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+}}
 
-/* 형광펜 배지 라벨 */
-.sketch-badge {
+/* 형광펜 배지 라벨 (이미지 원본 연두색) */
+.sketch-badge {{
     display: inline-block;
-    background-color: #bbf7d0;
-    border: 1.5px solid #16a34a;
+    background-color: #bbf7d0 !important;
+    border: 1.5px solid #16a34a !important;
     border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
     padding: 2px 14px;
     font-size: 20px;
-    font-weight: 700;
     margin-bottom: 10px;
-    color: #166534;
-}
+    color: #166534 !important;
+}}
 
-/* 주황색 손그림 버튼 */
-.stButton > button {
-    font-size: 23px !important;
-    font-weight: 700 !important;
+/* 버튼: 이미지 원본 주황색 피치톤 */
+.stButton > button {{
+    font-size: 22px !important;
     background-color: #fed7aa !important;
     color: #7c2d12 !important;
     border: 2px solid #2d3748 !important;
     border-radius: 255px 25px 225px 25px/25px 225px 25px 255px !important;
     box-shadow: 3px 4px 0px #2d3748 !important;
     transition: 0.1s ease-in-out;
-}
-.stButton > button:hover {
+}}
+.stButton > button:hover {{
     transform: translate(2px, 2px);
     box-shadow: 1px 2px 0px #2d3748 !important;
     background-color: #fdba74 !important;
-}
+}}
 
 /* 입력창 및 셀렉트박스 */
-div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
+div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {{
     border: 2px solid #2d3748 !important;
     border-radius: 180px 15px 190px 15px/15px 190px 15px 180px !important;
     background-color: #ffffff !important;
     box-shadow: 2px 2px 0px #94a3b8 !important;
-    font-size: 21px !important;
-}
+    font-size: 20px !important;
+}}
 
-/* 본문 점선 */
-hr {
+hr {{
     border: none !important;
     border-top: 2px dashed #94a3b8 !important;
-    margin: 24px 0 !important;
-}
+    margin: 16px 0 !important;
+}}
 
-/* 통계 메트릭 폰트 크기 및 스타일 */
-[data-testid="stMetricValue"] {
+[data-testid="stMetricValue"] {{
     font-size: 30px !important;
-    font-weight: 700 !important;
-}
-[data-testid="stMetricLabel"] {
+    color: #1e293b !important;
+}}
+[data-testid="stMetricLabel"] {{
     font-size: 19px !important;
-}
+    color: #64748b !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
 # 1. 로컬 환경용 .env 로드
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".env"))
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path=dotenv_path, override=True)
@@ -150,7 +195,6 @@ if not WEATHER_API_KEY:
 if not EXCHANGE_API_KEY:
     EXCHANGE_API_KEY = os.getenv("EXCHANGERATE_API_KEY")
 
-# 타이틀 헤더 (CSS 클래스 적용)
 st.markdown("<div class='main-title'>✏️ Visit & Travel Diary</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-title'>도시별 날씨, 현지 시각, 일별 환율 다이어리</div>", unsafe_allow_html=True)
 
@@ -158,8 +202,9 @@ if not WEATHER_API_KEY or not EXCHANGE_API_KEY:
     st.error("🚨 API 키를 불러오지 못했습니다! Streamlit Secrets를 확인해주세요.")
     st.stop()
 
-# 3. 주요 여행 도시 및 통화 매핑 목록
+# 3. 여행 도시 및 기본 통화 목록
 DESTINATIONS = {
+    "호주 (시드니)": {"city": "Sydney", "currency": "AUD"},
     "아일랜드 (더블린)": {"city": "Dublin", "currency": "EUR"},
     "일본 (도쿄)": {"city": "Tokyo", "currency": "JPY"},
     "미국 (뉴욕)": {"city": "New York", "currency": "USD"},
@@ -168,7 +213,6 @@ DESTINATIONS = {
     "베트남 (다낭)": {"city": "Da Nang", "currency": "USD"},
     "싱가포르 (싱가포르)": {"city": "Singapore", "currency": "SGD"},
     "대만 (타이베이)": {"city": "Taipei", "currency": "TWD"},
-    "호주 (시드니)": {"city": "Sydney", "currency": "AUD"},
     "한국 (서울)": {"city": "Seoul", "currency": "KRW"}
 }
 
@@ -209,22 +253,22 @@ with st.container(border=True):
         selected_info = DESTINATIONS[selected_dest_label]
         base_currency = st.selectbox(
             "기준 화폐",
-            options=["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"],
-            index=["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"].index(selected_info["currency"]) if selected_info["currency"] in ["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"] else 0
+            options=["AUD", "USD", "KRW", "EUR", "JPY", "GBP", "SGD"],
+            index=["AUD", "USD", "KRW", "EUR", "JPY", "GBP", "SGD"].index(selected_info["currency"]) if selected_info["currency"] in ["AUD", "USD", "KRW", "EUR", "JPY", "GBP", "SGD"] else 0
         )
 
     st.button("📖 수첩 열어보기", type="primary", use_container_width=True, on_click=open_diary)
 
-# 5. 버튼을 누르기 전 상태
+# 5. 수첩 닫힌 상태 안내
 if not st.session_state.diary_opened:
     st.markdown("""
-    <div style='text-align: center; padding: 40px 10px; color: #94a3b8;'>
+    <div style='text-align: center; padding: 40px 10px; color: #64748b;'>
         <p style='font-size: 26px; margin: 0;'>📝 도시를 선택하고 <b>[📖 수첩 열어보기]</b> 버튼을 눌러주세요!</p>
-        <p style='font-size: 20px; margin-top: 6px;'>선택한 여행지의 실시간 날씨, 시차, 일별 환율 및 옷차림 팁이 펼쳐집니다.</p>
+        <p style='font-size: 20px; margin-top: 6px;'>실시간 날씨, 시차, 일별 환율 및 옷차림 팁이 펼쳐집니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
-# 6. 버튼을 눌렀을 때만 하단 내용 표시
+# 6. 수첩 열린 상태
 else:
     city_en = selected_info["city"]
     col_weather, col_rate = st.columns(2)
@@ -294,7 +338,8 @@ else:
                         rate_val = rates.get(cur, 0.0)
                         st.write(f"👉 **1 {base_currency}** = **{rate_val:,.2f} {cur}**")
 
-                    st.caption(f"업데이트: {last_update} UTC")
+                    st.divider()
+                    st.caption(f"기준 업데이트: {last_update} UTC")
                 else:
                     st.error("환율 API 오류가 발생했습니다.")
             except requests.exceptions.RequestException as e:
@@ -313,7 +358,7 @@ else:
 
         chart_col1, chart_col2, chart_col3 = st.columns([1, 1, 1])
         with chart_col1:
-            chart_from = st.selectbox("기준 통화", options=["USD", "EUR", "JPY", "GBP"], index=0, key="chart_from")
+            chart_from = st.selectbox("기준 통화", options=["AUD", "USD", "EUR", "JPY", "GBP"], index=0, key="chart_from")
         with chart_col2:
             chart_to = st.selectbox("대상 통화", options=["KRW", "USD", "JPY", "EUR"], index=0, key="chart_to")
         with chart_col3:
@@ -348,12 +393,12 @@ else:
                                 point=alt.OverlayMarkDef(filled=True, size=50, color="#f472b6")
                             )
                             .encode(
-                                x=alt.X("날짜:N", title="날짜", axis=alt.Axis(labelAngle=-45)),
+                                x=alt.X("날짜:N", title="날짜", axis=alt.Axis(labelAngle=-45, labelColor="#1e293b", titleColor="#1e293b")),
                                 y=alt.Y(
                                     "종가 환율:Q",
                                     title=f"환율 ({chart_to})",
                                     scale=alt.Scale(domain=[y_min - padding, y_max + padding], zero=False),
-                                    axis=alt.Axis(format=",.2f")
+                                    axis=alt.Axis(format=",.2f", labelColor="#1e293b", titleColor="#1e293b")
                                 ),
                                 tooltip=["날짜", "종가 환율"]
                             )
@@ -390,12 +435,12 @@ else:
         with calc_col1:
             amount = st.number_input("금액 입력", min_value=0.0, value=100.0, step=10.0, format="%.2f")
 
-        currency_list = ["USD", "KRW", "EUR", "JPY", "CNY", "GBP", "CAD", "AUD", "SGD", "TWD"]
+        currency_list = ["AUD", "USD", "KRW", "EUR", "JPY", "CNY", "GBP", "CAD", "SGD", "TWD"]
 
         with calc_col2:
             from_currency = st.selectbox("보낸 통화 (From)", options=currency_list, index=currency_list.index(base_currency) if base_currency in currency_list else 0)
         with calc_col3:
-            to_currency = st.selectbox("받을 통화 (To)", options=currency_list, index=1)
+            to_currency = st.selectbox("받을 통화 (To)", options=currency_list, index=2)
 
         if st.button("✏️ 환율 계산하기", use_container_width=True):
             if from_currency == to_currency:
@@ -410,7 +455,7 @@ else:
                         converted_result = c_data.get("conversion_result", 0.0)
                         unit_rate = c_data.get("conversion_rate", 0.0)
 
-                        st.markdown(f"<h3 style='text-align: center; color: #be185d; margin: 10px 0; font-family: \"Gaegu\", cursive;'>{amount:,.2f} {from_currency} ➡️ {converted_result:,.2f} {to_currency}</h3>", unsafe_allow_html=True)
+                        st.markdown(f"<h3 style='text-align: center; color: #be185d !important; margin: 10px 0;'>{amount:,.2f} {from_currency} ➡️ {converted_result:,.2f} {to_currency}</h3>", unsafe_allow_html=True)
                         st.caption(f"적용 환율: 1 {from_currency} = {unit_rate:,.4f} {to_currency}")
                     else:
                         st.error(f"환율 계산 오류: {c_data.get('error-type', '알 수 없음')}")
