@@ -1,6 +1,9 @@
 import os
 import requests
 import streamlit as st
+import pandas as pd
+import yfinance as yf
+import altair as alt
 from dotenv import load_dotenv
 
 # Streamlit 기본 설정
@@ -144,7 +147,93 @@ if st.button("조회하기", type="primary", use_container_width=True):
                 st.error(f"환율 네트워크 오류: {e}")
 
 # -----------------------------
-# 3) 실시간 환율 계산기
+# 3) 일자별 환율 변동 추이 (계산기 위로 이동)
+# -----------------------------
+st.divider()
+st.subheader("📅 일자별 환율 변동 추이")
+
+chart_col1, chart_col2, chart_col3 = st.columns([1, 1, 1])
+
+with chart_col1:
+    chart_from = st.selectbox("기준 통화", options=["USD", "EUR", "JPY", "GBP"], index=0, key="chart_from")
+with chart_col2:
+    chart_to = st.selectbox("대상 통화", options=["KRW", "USD", "JPY", "EUR"], index=0, key="chart_to")
+with chart_col3:
+    period_label = st.selectbox("조회 기간", options=["최근 7일", "최근 1개월", "최근 3개월", "최근 1년"], index=1)
+
+period_map = {
+    "최근 7일": "7d",
+    "최근 1개월": "1mo",
+    "최근 3개월": "3mo",
+    "최근 1년": "1y"
+}
+selected_period = period_map[period_label]
+
+if chart_from == chart_to:
+    st.warning("서로 다른 통화를 선택해 주세요.")
+else:
+    ticker_symbol = f"{chart_from}{chart_to}=X"
+
+    with st.spinner(f"{period_label} 일별 환율 데이터를 불러오는 중..."):
+        try:
+            ticker = yf.Ticker(ticker_symbol)
+            hist = ticker.history(period=selected_period, interval="1d")
+
+            if not hist.empty:
+                chart_df = pd.DataFrame({
+                    "날짜": hist.index.strftime("%Y-%m-%d"),
+                    "종가 환율": hist["Close"].round(2)
+                })
+
+                y_min = float(chart_df["종가 환율"].min())
+                y_max = float(chart_df["종가 환율"].max())
+                padding = (y_max - y_min) * 0.15 if y_max != y_min else 1.0
+
+                chart = (
+                    alt.Chart(chart_df)
+                    .mark_line(
+                        color="#FF4B4B",
+                        strokeWidth=3,
+                        point=alt.OverlayMarkDef(filled=True, size=50, color="#FF4B4B")
+                    )
+                    .encode(
+                        x=alt.X("날짜:N", title="날짜", axis=alt.Axis(labelAngle=-45)),
+                        y=alt.Y(
+                            "종가 환율:Q",
+                            title=f"환율 ({chart_to})",
+                            scale=alt.Scale(domain=[y_min - padding, y_max + padding], zero=False),
+                            axis=alt.Axis(format=",.2f")
+                        ),
+                        tooltip=["날짜", "종가 환율"]
+                    )
+                    .interactive()
+                )
+
+                st.altair_chart(chart, use_container_width=True)
+
+                # 기간 변동 통계
+                start_val = float(hist["Close"].iloc[0])
+                latest_val = float(hist["Close"].iloc[-1])
+                diff = latest_val - start_val
+                pct_diff = (diff / start_val) * 100
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric(label="최근 마감 환율", value=f"{latest_val:,.2f} {chart_to}")
+                m2.metric(label=f"{period_label} 변동폭", value=f"{diff:+,.2f}", delta=f"{pct_diff:+.2f}%")
+                m3.metric(
+                    label="기간 최고 / 최저",
+                    value=f"{hist['High'].max():,.2f}",
+                    delta=f"최저 {hist['Low'].min():,.2f}",
+                    delta_color="off"
+                )
+            else:
+                st.info("선택한 통화쌍에 대한 일별 데이터가 없습니다.")
+
+        except Exception as e:
+            st.error(f"환율 차트 데이터를 가져오지 못했습니다: {e}")
+
+# -----------------------------
+# 4) 실시간 환율 계산기 (하단 배치)
 # -----------------------------
 st.divider()
 st.subheader("🧮 실시간 환율 계산기")
