@@ -163,10 +163,14 @@ def get_outfit_advice(temp, weather_desc):
         advice.append("☃️ 눈이 오거나 얼 수 있으니 미끄럽지 않은 신발을 신으세요!")
     return advice
 
-if "opened" not in st.session_state:
-    st.session_state.opened = False
+# 세션 상태: 수첩 열림 여부 관리 (기본값: False)
+if "diary_opened" not in st.session_state:
+    st.session_state.diary_opened = False
 
-# 4. 여행지 선택 컨트롤
+def open_diary():
+    st.session_state.diary_opened = True
+
+# 4. 상단 여행지 선택 카드
 with st.container(border=True):
     st.markdown('<span class="sketch-badge">Where to travel?</span>', unsafe_allow_html=True)
     c1, c2 = st.columns([2, 1])
@@ -180,11 +184,20 @@ with st.container(border=True):
             index=["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"].index(selected_info["currency"]) if selected_info["currency"] in ["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"] else 0
         )
 
-    if st.button("📖 수첩 열어보기", type="primary", use_container_width=True):
-        st.session_state.opened = True
+    # 이 버튼을 누르면 diary_opened가 True가 되며 하단 섹션이 등장
+    st.button("📖 수첩 열어보기", type="primary", use_container_width=True, on_click=open_diary)
 
-# 5. 수첩 내용 출력
-if st.session_state.opened:
+# 5. 버튼을 누르기 전 안내 (수첩 닫힌 상태)
+if not st.session_state.diary_opened:
+    st.markdown("""
+    <div style='text-align: center; padding: 40px 10px; color: #94a3b8;'>
+        <p style='font-size: 26px; margin: 0;'>📝 도시를 선택하고 <b>[📖 수첩 열어보기]</b> 버튼을 눌러주세요!</p>
+        <p style='font-size: 19px; margin-top: 6px;'>선택한 여행지의 실시간 날씨, 시차, 일별 환율 및 옷차림 팁이 펼쳐집니다.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# 6. 버튼을 눌렀을 때만 하단 내용 표시
+else:
     city_en = selected_info["city"]
     col_weather, col_rate = st.columns(2)
 
@@ -210,10 +223,8 @@ if st.session_state.opened:
                     humidity = w_data["main"]["humidity"]
                     wind_speed = w_data["wind"]["speed"]
                     
-                    # OpenWeatherMap 타임존 오프셋(초) 기반 현지 시각 계산
                     tz_offset_sec = w_data.get("timezone", 0)
                     local_time = datetime.now(timezone.utc) + timedelta(seconds=tz_offset_sec)
-                    kst_time = datetime.now(timezone.utc) + timedelta(hours=9)
                     time_diff_hours = int(tz_offset_sec / 3600) - 9
 
                     icon_url = f"https://openweathermap.org/img/wn/{icon_code}@2x.png"
