@@ -15,19 +15,45 @@ st.set_page_config(
 )
 
 # -----------------------------
-# 0) 핸드스케치 모눈종이 커스텀 CSS 주입
+# 0) 모든 텍스트 일괄 폰트 적용 커스텀 CSS
 # -----------------------------
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
 
-html, body, [class*="css"], .stApp {
+/* 전체 앱 및 모든 하위 텍스트 태그에 손글씨 폰트 일괄 강제 적용 */
+html, body, [class*="css"], .stApp, 
+h1, h2, h3, h4, h5, h6, p, span, div, label, input, button, select, 
+.stMarkdown, .stText, [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
     font-family: 'Gaegu', cursive !important;
-    font-size: 21px;
+}
+
+/* 기본 배경: 모눈종이 도트 패턴 */
+.stApp {
+    font-size: 22px;
     background-color: #fbfbf9 !important;
     background-image: radial-gradient(#cbd5e1 1.4px, transparent 1.4px) !important;
     background-size: 18px 18px !important;
     color: #1e293b !important;
+}
+
+/* 헤더 타이틀 폰트 크기 및 간격 */
+.main-title {
+    font-family: 'Gaegu', cursive !important;
+    text-align: center;
+    font-size: 46px;
+    font-weight: 700;
+    margin-bottom: 0px;
+    color: #1e293b;
+}
+
+.sub-title {
+    font-family: 'Gaegu', cursive !important;
+    text-align: center;
+    font-size: 24px;
+    color: #64748b;
+    margin-top: 4px;
+    margin-bottom: 25px;
 }
 
 /* Streamlit 테두리 컨테이너를 비대칭 손그림 카드로 변환 */
@@ -46,8 +72,8 @@ html, body, [class*="css"], .stApp {
     background-color: #bbf7d0;
     border: 1.5px solid #16a34a;
     border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
-    padding: 2px 12px;
-    font-size: 18px;
+    padding: 2px 14px;
+    font-size: 20px;
     font-weight: 700;
     margin-bottom: 10px;
     color: #166534;
@@ -55,8 +81,7 @@ html, body, [class*="css"], .stApp {
 
 /* 주황색 손그림 버튼 */
 .stButton > button {
-    font-family: 'Gaegu', cursive !important;
-    font-size: 22px !important;
+    font-size: 23px !important;
     font-weight: 700 !important;
     background-color: #fed7aa !important;
     color: #7c2d12 !important;
@@ -77,19 +102,23 @@ div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
     border-radius: 180px 15px 190px 15px/15px 190px 15px 180px !important;
     background-color: #ffffff !important;
     box-shadow: 2px 2px 0px #94a3b8 !important;
-    font-family: 'Gaegu', cursive !important;
-    font-size: 20px !important;
+    font-size: 21px !important;
 }
 
+/* 본문 점선 */
 hr {
     border: none !important;
     border-top: 2px dashed #94a3b8 !important;
     margin: 24px 0 !important;
 }
 
+/* 통계 메트릭 폰트 크기 및 스타일 */
 [data-testid="stMetricValue"] {
-    font-size: 28px !important;
-    font-family: 'Gaegu', cursive !important;
+    font-size: 30px !important;
+    font-weight: 700 !important;
+}
+[data-testid="stMetricLabel"] {
+    font-size: 19px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -121,8 +150,9 @@ if not WEATHER_API_KEY:
 if not EXCHANGE_API_KEY:
     EXCHANGE_API_KEY = os.getenv("EXCHANGERATE_API_KEY")
 
-st.markdown("<h1 style='text-align: center; font-size: 44px; margin-bottom: 0;'>✏️ Visit & Travel Diary</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 22px; color: #64748b; margin-top: 4px;'>도시별 날씨, 현지 시각, 일별 환율 다이어리</p>", unsafe_allow_html=True)
+# 타이틀 헤더 (CSS 클래스 적용)
+st.markdown("<div class='main-title'>✏️ Visit & Travel Diary</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>도시별 날씨, 현지 시각, 일별 환율 다이어리</div>", unsafe_allow_html=True)
 
 if not WEATHER_API_KEY or not EXCHANGE_API_KEY:
     st.error("🚨 API 키를 불러오지 못했습니다! Streamlit Secrets를 확인해주세요.")
@@ -163,7 +193,6 @@ def get_outfit_advice(temp, weather_desc):
         advice.append("☃️ 눈이 오거나 얼 수 있으니 미끄럽지 않은 신발을 신으세요!")
     return advice
 
-# 세션 상태: 수첩 열림 여부 관리 (기본값: False)
 if "diary_opened" not in st.session_state:
     st.session_state.diary_opened = False
 
@@ -184,15 +213,14 @@ with st.container(border=True):
             index=["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"].index(selected_info["currency"]) if selected_info["currency"] in ["USD", "KRW", "EUR", "JPY", "GBP", "SGD", "AUD"] else 0
         )
 
-    # 이 버튼을 누르면 diary_opened가 True가 되며 하단 섹션이 등장
     st.button("📖 수첩 열어보기", type="primary", use_container_width=True, on_click=open_diary)
 
-# 5. 버튼을 누르기 전 안내 (수첩 닫힌 상태)
+# 5. 버튼을 누르기 전 상태
 if not st.session_state.diary_opened:
     st.markdown("""
     <div style='text-align: center; padding: 40px 10px; color: #94a3b8;'>
         <p style='font-size: 26px; margin: 0;'>📝 도시를 선택하고 <b>[📖 수첩 열어보기]</b> 버튼을 눌러주세요!</p>
-        <p style='font-size: 19px; margin-top: 6px;'>선택한 여행지의 실시간 날씨, 시차, 일별 환율 및 옷차림 팁이 펼쳐집니다.</p>
+        <p style='font-size: 20px; margin-top: 6px;'>선택한 여행지의 실시간 날씨, 시차, 일별 환율 및 옷차림 팁이 펼쳐집니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -382,7 +410,7 @@ else:
                         converted_result = c_data.get("conversion_result", 0.0)
                         unit_rate = c_data.get("conversion_rate", 0.0)
 
-                        st.markdown(f"<h3 style='text-align: center; color: #be185d; margin: 10px 0;'>{amount:,.2f} {from_currency} ➡️ {converted_result:,.2f} {to_currency}</h3>", unsafe_allow_html=True)
+                        st.markdown(f"<h3 style='text-align: center; color: #be185d; margin: 10px 0; font-family: \"Gaegu\", cursive;'>{amount:,.2f} {from_currency} ➡️ {converted_result:,.2f} {to_currency}</h3>", unsafe_allow_html=True)
                         st.caption(f"적용 환율: 1 {from_currency} = {unit_rate:,.4f} {to_currency}")
                     else:
                         st.error(f"환율 계산 오류: {c_data.get('error-type', '알 수 없음')}")
