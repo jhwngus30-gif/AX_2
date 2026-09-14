@@ -1,7 +1,7 @@
 from openai import OpenAI
 # # 실행방법 : python 파일명
 
-# client = OpenAI(api_key="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") 
+# client = OpenAI(
 # -> 무효화된 api임!!
 # # git에만 안올라가면 api를 써도 된다. git에 올라가는게 문제
 # response = client.chat.completions.create(model='gpt-4o-mini', #model 지정
