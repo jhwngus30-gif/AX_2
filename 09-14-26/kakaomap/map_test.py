@@ -1,5 +1,7 @@
 import os
 import math
+import re
+import html
 import requests
 import streamlit as st
 import folium
@@ -26,7 +28,6 @@ if "last_station" not in st.session_state:
 # ----------------------------------------------------
 st.markdown("""
 <style>
-    /* 폰트 및 기본 배경 */
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     
     html, body, [class*="css"] {
@@ -38,13 +39,11 @@ st.markdown("""
         color: #2D2926;
     }
     
-    /* 사이드바 배경 */
     section[data-testid="stSidebar"] {
         background-color: #FEFCE8;
         border-right: 1px solid #FEF08A;
     }
     
-    /* 헤더 및 배너 타이틀 */
     .brand-header {
         background: linear-gradient(135deg, #FEF9C3 0%, #FEF08A 100%);
         padding: 24px 28px;
@@ -67,7 +66,6 @@ st.markdown("""
         margin-bottom: 0;
     }
     
-    /* 안내 배너 카드 */
     .banner-card {
         background-color: #FFFBEB;
         border: 1px solid #FDE68A;
@@ -80,7 +78,6 @@ st.markdown("""
         margin-bottom: 15px;
     }
 
-    /* 카드 컨테이너 (st.container border=True 커스텀) */
     div[data-testid="stVerticalBlockBorderWrapper"] > div {
         background-color: #FFFFFF !important;
         border: 1px solid #FEF08A !important;
@@ -89,7 +86,6 @@ st.markdown("""
         padding: 18px !important;
     }
 
-    /* 메트릭 지표 카드 */
     div[data-testid="stMetric"] {
         background-color: #FEFCE8;
         border: 1px solid #FEF08A;
@@ -107,7 +103,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* 탭 디자인 */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         background-color: #FEFCE8;
@@ -120,9 +115,9 @@ st.markdown("""
         border-radius: 8px;
         color: #92400E;
         font-weight: 600;
-        font-size: 14px;
+        font-size: 13.5px;
         border: none;
-        padding: 0 16px;
+        padding: 0 14px;
     }
     .stTabs [aria-selected="true"] {
         background-color: #FDE047 !important;
@@ -130,7 +125,6 @@ st.markdown("""
         box-shadow: 0 2px 6px rgba(202, 138, 4, 0.2);
     }
     
-    /* 버튼 스타일 */
     .stButton > button {
         background-color: #FEF08A;
         color: #78350F;
@@ -148,18 +142,35 @@ st.markdown("""
         box-shadow: 0 3px 8px rgba(234, 179, 8, 0.25);
     }
     
-    /* 아코디언 */
-    .streamlit-expanderHeader {
+    .blog-item {
         background-color: #FFFDF7;
         border: 1px solid #FEF08A;
-        border-radius: 10px;
-        font-weight: 600;
-        color: #451A03;
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-bottom: 10px;
+    }
+    .blog-title {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #78350F;
+        text-decoration: none;
+    }
+    .blog-title:hover {
+        text-decoration: underline;
+    }
+    .blog-desc {
+        font-size: 12.5px;
+        color: #57534E;
+        margin: 6px 0;
+        line-height: 1.4;
+    }
+    .blog-meta {
+        font-size: 11.5px;
+        color: #A8A29E;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 상단 헤더
 st.markdown("""
 <div class="brand-header">
     <h1>🚂 어디갈래?</h1>
@@ -191,8 +202,13 @@ def estimate_travel_time(distance_m):
     return walk_min, car_min, round(real_dist)
 
 # ----------------------------------------------------
-# 2. 카카오 API 함수
+# 2. 카카오 API 함수 (로컬, 이미지, 블로그 검색)
 # ----------------------------------------------------
+def clean_html(raw_html):
+    """카카오 검색 결과의 <b> 태그 및 HTML 엔티티 제거"""
+    clean_text = re.sub(r"<.*?>", "", raw_html)
+    return html.unescape(clean_text)
+
 def search_keyword(query, api_key):
     url = "https://dapi.kakao.com/v2/local/search/keyword.json"
     headers = {"Authorization": f"KakaoAK {api_key}"}
@@ -239,6 +255,20 @@ def get_place_image(place_name, api_key):
     except Exception:
         pass
     return None
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def search_blog(query, api_key, size=7):
+    """카카오 Daum 블로그 검색 API"""
+    url = "https://dapi.kakao.com/v2/search/blog"
+    headers = {"Authorization": f"KakaoAK {api_key}"}
+    params = {"query": query, "size": size, "sort": "accuracy"}
+    try:
+        res = requests.get(url, headers=headers, params=params, timeout=5)
+        if res.status_code == 200:
+            return res.json().get("documents", [])
+    except Exception:
+        pass
+    return []
 
 # ----------------------------------------------------
 # 3. 날씨 & 환율 API 함수
@@ -323,7 +353,6 @@ if selected_station == "직접 입력":
 else:
     station_name = selected_station
 
-# 도착역 변경 시 이전 코스 관리
 if st.session_state.last_station != station_name:
     if st.session_state.my_trip:
         st.sidebar.warning(f"도착역이 '{st.session_state.last_station}'에서 '{station_name}'(으)로 변경되었습니다.")
@@ -368,7 +397,6 @@ if target_place:
     center_name = target_place["place_name"]
     center_addr = target_place.get("road_address_name") or target_place.get("address_name")
     
-    # 상단 위치 요약 배너
     col_banner1, col_banner2 = st.columns([3, 1])
     with col_banner1:
         if sub_area.strip() and center_name != st_official_name:
@@ -397,6 +425,10 @@ if target_place:
     spots = search_category("AT4", center_lat, center_lng, radius, KAKAO_API_KEY)
     cafes = search_category("CE7", center_lat, center_lng, radius, KAKAO_API_KEY)
     restaurants = search_category("FD6", center_lat, center_lng, radius, KAKAO_API_KEY)
+
+    # 검색어 기반 블로그 검색 쿼리 구성
+    blog_query = f"{center_name} 여행" if center_name == st_official_name else f"{station_name} {center_name} 여행"
+    blog_posts = search_blog(blog_query, KAKAO_API_KEY, size=6)
 
     col_map, col_details = st.columns([1.3, 1])
 
@@ -470,13 +502,14 @@ if target_place:
         st_folium(m, width="100%", height=530)
 
     # ----------------------------------------------------
-    # 우측 탭별 목록
+    # 우측 탭별 목록 (블로그 탭 추가)
     # ----------------------------------------------------
     with col_details:
-        tab_spot, tab_cafe, tab_food = st.tabs([
+        tab_spot, tab_cafe, tab_food, tab_blog = st.tabs([
             f"🏛️ 관광지 ({len(spots)})", 
             f"☕ 감성 카페 ({len(cafes)})", 
-            f"🍽️ 현지 맛집 ({len(restaurants)})"
+            f"🍽️ 현지 맛집 ({len(restaurants)})",
+            f"📝 여행 블로그 ({len(blog_posts)})"
         ])
         
         def render_place_list_with_add(items, empty_text, category_tag):
@@ -505,6 +538,10 @@ if target_place:
                     if url:
                         st.markdown(f"[카카오맵 상세보기]({url})")
 
+                    # 블로그 후기 바로가기 링크
+                    encoded_name = requests.utils.quote(name)
+                    st.markdown(f"[🔍 '{name}' 다음 블로그 후기 검색](https://search.daum.net/search?w=blog&q={encoded_name})")
+
                     already_added = any(p["name"] == name for p in st.session_state.my_trip)
                     if not already_added:
                         if st.button(f"➕ 내 코스에 담기", key=f"add_{category_tag}_{idx}"):
@@ -529,6 +566,27 @@ if target_place:
 
         with tab_food:
             render_place_list_with_add(restaurants, "반경 내 맛집 정보가 없습니다.", "맛집")
+
+        # 블로그 검색 결과 탭
+        with tab_blog:
+            st.caption(f"🔎 검색어: **'{blog_query}'** 관련 인기 후기")
+            if blog_posts:
+                for post in blog_posts:
+                    b_title = clean_html(post.get("title", "제목 없음"))
+                    b_contents = clean_html(post.get("contents", ""))
+                    b_url = post.get("url", "#")
+                    b_blogname = post.get("blogname", "블로그")
+                    b_date = post.get("datetime", "")[:10]
+
+                    st.markdown(f"""
+                    <div class="blog-item">
+                        <a href="{b_url}" target="_blank" class="blog-title">{b_title}</a>
+                        <div class="blog-desc">{b_contents[:110]}...</div>
+                        <div class="blog-meta">✍️ {b_blogname} | 📅 {b_date}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.caption("관련 블로그 후기를 불러올 수 없습니다.")
 
     st.markdown("---")
 
@@ -614,7 +672,6 @@ if target_place:
     pm2_5 = weather_info.get("pm2_5")
     air_status, air_icon = get_air_quality_status(pm10, pm2_5)
 
-    # 1. 좌측 상단: 날씨 & 공기질
     with col_left:
         with st.container(border=True):
             st.markdown(f"#### ⛅ {center_name} 실시간 날씨 & 공기질")
@@ -633,7 +690,6 @@ if target_place:
             with a_c2:
                 st.caption(f"PM10: {pm10}㎍/㎥ | 초미세: {pm2_5}㎍/㎥" if pm10 is not None else "측정 중")
 
-    # 2. 우측 상단: 옷차림 추천
     with col_right:
         with st.container(border=True):
             st.markdown("#### 👕 기차 여행 맞춤 옷차림 & 팁")
@@ -646,7 +702,6 @@ if target_place:
             else:
                 st.success("✨ 쾌적한 뚜벅이 여행이 가능한 날씨입니다.")
 
-    # 3. 좌측 하단: 실시간 환율
     with col_left:
         with st.container(border=True):
             st.markdown("#### 💵 실시간 주요 환율 (USD)")
@@ -666,7 +721,6 @@ if target_place:
                     st.metric("USD / EUR", f"{usd_eur:,.4f} €")
             st.caption("실시간 국제 외환 시장 기준")
 
-    # 4. 우측 하단: 환율 계산기
     with col_right:
         with st.container(border=True):
             st.markdown("#### 💱 실시간 환율 계산기")
