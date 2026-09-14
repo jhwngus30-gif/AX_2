@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+requests
+folium
+streamlit-folium
+python-dotenv
+=======
 pandas
 streamlit
 doimport 
@@ -5,3 +11,4 @@ load_dotenv
 yfinance
 Pillow
 folium
+>>>>>>> 3dbfd01bc28bae67cc218bb42994a0b6d8bcaeba
