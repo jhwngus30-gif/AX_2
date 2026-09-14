@@ -117,7 +117,7 @@ st.markdown("""
         font-weight: 600;
         font-size: 13.5px;
         border: none;
-        padding: 0 14px;
+        padding: 0 16px;
     }
     .stTabs [aria-selected="true"] {
         background-color: #FDE047 !important;
@@ -146,26 +146,39 @@ st.markdown("""
         background-color: #FFFDF7;
         border: 1px solid #FEF08A;
         border-radius: 12px;
-        padding: 12px 14px;
-        margin-bottom: 10px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     }
     .blog-title {
-        font-size: 14.5px;
+        font-size: 15px;
         font-weight: 700;
         color: #78350F;
         text-decoration: none;
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
     .blog-title:hover {
         text-decoration: underline;
+        color: #B45309;
     }
     .blog-desc {
-        font-size: 12.5px;
+        font-size: 13px;
         color: #57534E;
-        margin: 6px 0;
-        line-height: 1.4;
+        margin: 8px 0;
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
     .blog-meta {
-        font-size: 11.5px;
+        font-size: 12px;
         color: #A8A29E;
     }
 </style>
@@ -205,7 +218,6 @@ def estimate_travel_time(distance_m):
 # 2. 카카오 API 함수 (로컬, 이미지, 블로그 검색)
 # ----------------------------------------------------
 def clean_html(raw_html):
-    """카카오 검색 결과의 <b> 태그 및 HTML 엔티티 제거"""
     clean_text = re.sub(r"<.*?>", "", raw_html)
     return html.unescape(clean_text)
 
@@ -257,7 +269,7 @@ def get_place_image(place_name, api_key):
     return None
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def search_blog(query, api_key, size=7):
+def search_blog(query, api_key, size=6):
     """카카오 Daum 블로그 검색 API"""
     url = "https://dapi.kakao.com/v2/search/blog"
     headers = {"Authorization": f"KakaoAK {api_key}"}
@@ -426,10 +438,6 @@ if target_place:
     cafes = search_category("CE7", center_lat, center_lng, radius, KAKAO_API_KEY)
     restaurants = search_category("FD6", center_lat, center_lng, radius, KAKAO_API_KEY)
 
-    # 검색어 기반 블로그 검색 쿼리 구성
-    blog_query = f"{center_name} 여행" if center_name == st_official_name else f"{station_name} {center_name} 여행"
-    blog_posts = search_blog(blog_query, KAKAO_API_KEY, size=6)
-
     col_map, col_details = st.columns([1.3, 1])
 
     # ----------------------------------------------------
@@ -502,14 +510,13 @@ if target_place:
         st_folium(m, width="100%", height=530)
 
     # ----------------------------------------------------
-    # 우측 탭별 목록 (블로그 탭 추가)
+    # 우측 탭별 장소 목록 (관광지 / 카페 / 맛집 3개 탭 구성)
     # ----------------------------------------------------
     with col_details:
-        tab_spot, tab_cafe, tab_food, tab_blog = st.tabs([
+        tab_spot, tab_cafe, tab_food = st.tabs([
             f"🏛️ 관광지 ({len(spots)})", 
             f"☕ 감성 카페 ({len(cafes)})", 
-            f"🍽️ 현지 맛집 ({len(restaurants)})",
-            f"📝 여행 블로그 ({len(blog_posts)})"
+            f"🍽️ 현지 맛집 ({len(restaurants)})"
         ])
         
         def render_place_list_with_add(items, empty_text, category_tag):
@@ -538,7 +545,6 @@ if target_place:
                     if url:
                         st.markdown(f"[카카오맵 상세보기]({url})")
 
-                    # 블로그 후기 바로가기 링크
                     encoded_name = requests.utils.quote(name)
                     st.markdown(f"[🔍 '{name}' 다음 블로그 후기 검색](https://search.daum.net/search?w=blog&q={encoded_name})")
 
@@ -566,27 +572,6 @@ if target_place:
 
         with tab_food:
             render_place_list_with_add(restaurants, "반경 내 맛집 정보가 없습니다.", "맛집")
-
-        # 블로그 검색 결과 탭
-        with tab_blog:
-            st.caption(f"🔎 검색어: **'{blog_query}'** 관련 인기 후기")
-            if blog_posts:
-                for post in blog_posts:
-                    b_title = clean_html(post.get("title", "제목 없음"))
-                    b_contents = clean_html(post.get("contents", ""))
-                    b_url = post.get("url", "#")
-                    b_blogname = post.get("blogname", "블로그")
-                    b_date = post.get("datetime", "")[:10]
-
-                    st.markdown(f"""
-                    <div class="blog-item">
-                        <a href="{b_url}" target="_blank" class="blog-title">{b_title}</a>
-                        <div class="blog-desc">{b_contents[:110]}...</div>
-                        <div class="blog-meta">✍️ {b_blogname} | 📅 {b_date}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.caption("관련 블로그 후기를 불러올 수 없습니다.")
 
     st.markdown("---")
 
@@ -660,7 +645,43 @@ if target_place:
     st.markdown("---")
 
     # ----------------------------------------------------
-    # 하단 2x2 대칭 그리드
+    # 📝 [신규] 검색 지역 인기 여행 블로그 후기 전용 박스
+    # ----------------------------------------------------
+    blog_query = f"{center_name} 여행" if center_name == st_official_name else f"{station_name} {center_name} 여행"
+    blog_posts = search_blog(blog_query, KAKAO_API_KEY, size=6)
+
+    with st.container(border=True):
+        st.markdown(f"#### 📝 '{center_name}' 인기 여행 블로그 후기")
+        st.caption(f"🔎 카카오 Daum 검색 기준 **'{blog_query}'** 관련 최신 여행기 & 추천 코스입니다.")
+
+        if blog_posts:
+            # 2열 카드 레이아웃 배치
+            b_col1, b_col2 = st.columns(2)
+            for idx, post in enumerate(blog_posts):
+                target_col = b_col1 if idx % 2 == 0 else b_col2
+                b_title = clean_html(post.get("title", "제목 없음"))
+                b_contents = clean_html(post.get("contents", ""))
+                b_url = post.get("url", "#")
+                b_blogname = post.get("blogname", "블로그")
+                b_date = post.get("datetime", "")[:10]
+
+                with target_col:
+                    st.markdown(f"""
+                    <div class="blog-item">
+                        <div>
+                            <a href="{b_url}" target="_blank" class="blog-title">{b_title}</a>
+                            <div class="blog-desc">{b_contents[:120]}...</div>
+                        </div>
+                        <div class="blog-meta">✍️ {b_blogname} &nbsp;|&nbsp; 📅 {b_date}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+        else:
+            st.caption("관련 블로그 후기를 불러올 수 없습니다.")
+
+    st.markdown("---")
+
+    # ----------------------------------------------------
+    # 하단 2x2 대칭 그리드 (날씨 / 옷차림 / 환율 / 계산기)
     # ----------------------------------------------------
     col_left, col_right = st.columns(2)
 
