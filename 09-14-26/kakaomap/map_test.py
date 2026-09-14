@@ -9,27 +9,163 @@ from dotenv import load_dotenv
 load_dotenv()
 KAKAO_API_KEY = os.getenv("KAKAO_API_KEY")
 
-st.set_page_config(page_title="🚂 어디갈래? - 기차 여행 & 코스 플래너", layout="wide", page_icon="🚂")
+st.set_page_config(
+    page_title="🚂 어디갈래? - 기차 여행 & 코스 플래너",
+    layout="wide",
+    page_icon="🚂"
+)
 
-# 세션 상태 관리 (여행 코스 & 이전 기준역 추적)
+# 세션 상태 관리
 if "my_trip" not in st.session_state:
     st.session_state.my_trip = []
 if "last_station" not in st.session_state:
     st.session_state.last_station = None
 
-# 스타일 커스텀
+# ----------------------------------------------------
+# 🎨 연노랑(Butter/Soft Yellow) 감성 모던 UI 스타일
+# ----------------------------------------------------
 st.markdown("""
 <style>
-    .stMetric {
-        background-color: #f8f9fa;
-        padding: 8px;
+    /* 폰트 및 기본 배경 */
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    
+    html, body, [class*="css"] {
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    .stApp {
+        background-color: #FFFDF7;
+        color: #2D2926;
+    }
+    
+    /* 사이드바 배경 */
+    section[data-testid="stSidebar"] {
+        background-color: #FEFCE8;
+        border-right: 1px solid #FEF08A;
+    }
+    
+    /* 헤더 및 배너 타이틀 */
+    .brand-header {
+        background: linear-gradient(135deg, #FEF9C3 0%, #FEF08A 100%);
+        padding: 24px 28px;
+        border-radius: 18px;
+        border: 1px solid #FDE047;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 16px rgba(234, 179, 8, 0.08);
+    }
+    .brand-header h1 {
+        color: #78350F;
+        font-size: 28px;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+    .brand-header p {
+        color: #92400E;
+        font-size: 14.5px;
+        margin-top: 6px;
+        margin-bottom: 0;
+    }
+    
+    /* 안내 배너 카드 */
+    .banner-card {
+        background-color: #FFFBEB;
+        border: 1px solid #FDE68A;
+        border-radius: 14px;
+        padding: 14px 18px;
+        color: #92400E;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    /* 카드 컨테이너 (st.container border=True 커스텀) */
+    div[data-testid="stVerticalBlockBorderWrapper"] > div {
+        background-color: #FFFFFF !important;
+        border: 1px solid #FEF08A !important;
+        border-radius: 16px !important;
+        box-shadow: 0 2px 10px rgba(217, 119, 6, 0.04) !important;
+        padding: 18px !important;
+    }
+
+    /* 메트릭 지표 카드 */
+    div[data-testid="stMetric"] {
+        background-color: #FEFCE8;
+        border: 1px solid #FEF08A;
+        border-radius: 12px;
+        padding: 10px 14px;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #92400E !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #78350F !important;
+        font-size: 20px !important;
+        font-weight: 700 !important;
+    }
+
+    /* 탭 디자인 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: #FEFCE8;
+        padding: 6px;
+        border-radius: 12px;
+        border: 1px solid #FEF08A;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 38px;
         border-radius: 8px;
+        color: #92400E;
+        font-weight: 600;
+        font-size: 14px;
+        border: none;
+        padding: 0 16px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #FDE047 !important;
+        color: #713F12 !important;
+        box-shadow: 0 2px 6px rgba(202, 138, 4, 0.2);
+    }
+    
+    /* 버튼 스타일 */
+    .stButton > button {
+        background-color: #FEF08A;
+        color: #78350F;
+        border: 1px solid #FDE047;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 13.5px;
+        transition: all 0.2s ease;
+    }
+    .stButton > button:hover {
+        background-color: #FDE047;
+        border-color: #EAB308;
+        color: #451A03;
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(234, 179, 8, 0.25);
+    }
+    
+    /* 아코디언 */
+    .streamlit-expanderHeader {
+        background-color: #FFFDF7;
+        border: 1px solid #FEF08A;
+        border-radius: 10px;
+        font-weight: 600;
+        color: #451A03;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🚂 어디갈래? | 기차역 & 세부 동네 여행 코스 만들기")
-st.caption("도착역과 가고 싶은 세부 동네를 설정하고, 장소 간 이동시간을 한눈에 계산해 보세요.")
+# 상단 헤더
+st.markdown("""
+<div class="brand-header">
+    <h1>🚂 어디갈래?</h1>
+    <p>기차역과 감성 동네를 잇는 따뜻한 맞춤형 여행 코스 플래너</p>
+</div>
+""", unsafe_allow_html=True)
 
 if not KAKAO_API_KEY:
     st.error(".env 파일에 KAKAO_API_KEY가 설정되지 않았습니다. .env 파일을 확인해 주세요.")
@@ -39,7 +175,7 @@ if not KAKAO_API_KEY:
 # 1. 거리 및 이동 시간 계산 함수 (하버사인 공식)
 # ----------------------------------------------------
 def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000  # 지구 반지름 (m)
+    R = 6371000
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
@@ -49,10 +185,8 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 def estimate_travel_time(distance_m):
-    real_dist = distance_m * 1.3  # 실제 도로 굴곡 계수 반영
-    # 도보: 시속 4km (분당 약 66.7m)
+    real_dist = distance_m * 1.3
     walk_min = max(1, round(real_dist / (4000 / 60)))
-    # 차량/택시: 시내 평균 시속 25km (분당 약 416.7m) + 신호대기 2분
     car_min = max(1, round((real_dist / (25000 / 60)) + 2))
     return walk_min, car_min, round(real_dist)
 
@@ -150,19 +284,19 @@ def get_outfit_recommendation(temp):
     if temp is None:
         return {"title": "날씨 수신 대기 중", "desc": "기온 정보를 불러오는 중입니다.", "items": ["편안한 운동화"]}
     if temp >= 28:
-        return {"title": "무더운 한여름", "desc": "린넨, 반팔 등 통풍이 잘되는 옷차림 권장", "items": ["반팔 / 린넨", "반바지 / 쿨슬랙스", "모자 / 양산 / 휴대용 선풍기"]}
+        return {"title": "무더운 한여름", "desc": "린넨, 반팔 등 통풍이 잘되는 가벼운 옷차림 추천", "items": ["린넨 셔츠 / 반팔", "쿨슬랙스 / 반바지", "자외선 차단 모자", "휴대용 선풍기"]}
     elif 23 <= temp < 28:
-        return {"title": "초여름 맑은 날", "desc": "열차 및 실내 에어컨 대비 얇은 겉옷 챙기기", "items": ["반팔티 / 얇은 셔츠", "면바지 / 슬랙스", "실내용 가디건"]}
+        return {"title": "초여름 맑은 날", "desc": "기차 및 실내 에어컨에 대비해 얇은 겉옷 구비", "items": ["반팔티 / 얇은 셔츠", "면바지 / 슬랙스", "얇은 가디건"]}
     elif 20 <= temp < 23:
-        return {"title": "쾌적한 간절기", "desc": "동네 골목 뚜벅이 여행에 가장 좋은 날씨", "items": ["맨투맨 / 긴팔 티", "가벼운 셔츠 아우터", "청바지 / 워킹화"]}
+        return {"title": "선선한 여행 날씨", "desc": "가벼운 뚜벅이 코스 산책에 가장 쾌적한 날씨", "items": ["맨투맨 / 긴팔 티", "가벼운 셔츠 아우터", "편한 워킹화"]}
     elif 17 <= temp < 20:
-        return {"title": "선선한 환절기", "desc": "일교차 대비 겉옷 필수", "items": ["니트 / 맨투맨", "자켓 / 블루종", "긴바지"]}
+        return {"title": "기분 좋은 환절기", "desc": "아침저녁 쌀쌀함에 대비해 자켓 착용", "items": ["니트 / 맨투맨", "자켓 / 블루종", "슬랙스"]}
     elif 12 <= temp < 17:
-        return {"title": "쌀쌀한 날씨", "desc": "트렌치코트나 두꺼운 외투 추천", "items": ["트렌치코트 / 자켓", "도톰한 니트", "슬랙스"]}
+        return {"title": "쌀쌀한 가을/초봄", "desc": "트렌치코트나 도톰한 자켓 추천", "items": ["트렌치코트 / 자켓", "도톰한 니트", "긴바지"]}
     elif 9 <= temp < 12:
-        return {"title": "초겨울 추위", "desc": "코트나 경량 패딩 착용", "items": ["울 코트 / 경량 패딩", "방한 이너", "목도리"]}
+        return {"title": "초겨울 쌀쌀함", "desc": "코트나 경량 패딩 착용", "items": ["울 코트 / 경량 패딩", "방한 이너", "목도리"]}
     else:
-        return {"title": "한파 영하권 날씨", "desc": "롱패딩과 방한용품 무장 필요", "items": ["롱패딩 / 헤비 아우터", "기모 팬츠", "장갑 / 핫팩"]}
+        return {"title": "한파 영하권", "desc": "롱패딩과 방한용품 필수 착용", "items": ["롱패딩 / 헤비 아우터", "기모 팬츠", "장갑 / 핫팩"]}
 
 def get_rate(base_currency, target_currency):
     if base_currency == target_currency:
@@ -177,9 +311,9 @@ def get_rate(base_currency, target_currency):
     return None
 
 # ----------------------------------------------------
-# 사이드바: 1단계 기차역 + 2단계 세부 동네/지역 검색
+# 사이드바 설정
 # ----------------------------------------------------
-st.sidebar.header("🚂 기차역 및 여행 지역 선택")
+st.sidebar.markdown("### 🚂 여행지 설정")
 
 station_presets = ["강릉역", "부산역", "광주송정역", "여수EXPO역", "동대구역", "경주역", "전주역", "대전역", "춘천역", "직접 입력"]
 selected_station = st.sidebar.selectbox("1. 도착 기차역 선택", station_presets, index=0)
@@ -189,7 +323,7 @@ if selected_station == "직접 입력":
 else:
     station_name = selected_station
 
-# 기차역이 변경되었을 때 이전 코스 리셋 안내 및 자동 초기화 로직
+# 도착역 변경 시 이전 코스 관리
 if st.session_state.last_station != station_name:
     if st.session_state.my_trip:
         st.sidebar.warning(f"도착역이 '{st.session_state.last_station}'에서 '{station_name}'(으)로 변경되었습니다.")
@@ -200,18 +334,16 @@ if st.session_state.last_station != station_name:
     else:
         st.session_state.last_station = station_name
 
-# 2단계: 세부 지역/동네 이름 검색
-sub_area = st.sidebar.text_input("2. 세부 동네/명소 입력 (선택사항)", placeholder="예: 안목해변, 초당마을, 광안리")
-
+sub_area = st.sidebar.text_input("2. 세부 동네/명소 (선택)", placeholder="예: 안목해변, 초당마을, 광안리")
 radius = st.sidebar.slider("탐색 반경 (미터)", min_value=300, max_value=3000, value=1500, step=100)
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🎟️ 기차표 빠른 예매")
-st.sidebar.link_button("🚆 코레일톡 (KTX / 일반열차)", "https://www.letskorail.com/", use_container_width=True)
-st.sidebar.link_button("🚅 SRT 승차권 예매 (수서발)", "https://etk.srail.kr/", use_container_width=True)
+st.sidebar.markdown("### 🎟️ 기차표 빠른 예매")
+st.sidebar.link_button("🚆 코레일톡 (KTX / 일반)", "https://www.letskorail.com/", use_container_width=True)
+st.sidebar.link_button("🚅 SRT 승차권 (수서발)", "https://etk.srail.kr/", use_container_width=True)
 
 # ----------------------------------------------------
-# 중심 좌표 결정 로직
+# 메인 로직
 # ----------------------------------------------------
 station_place = search_keyword(station_name, KAKAO_API_KEY)
 if not station_place:
@@ -222,12 +354,10 @@ st_lat = float(station_place["y"])
 st_lng = float(station_place["x"])
 st_official_name = station_place["place_name"]
 
-# 세부 동네 입력이 있으면 [기차역명 + 동네명]으로 검색하여 탐색 중심으로 설정
 if sub_area.strip():
     target_query = f"{station_name} {sub_area.strip()}"
     target_place = search_keyword(target_query, KAKAO_API_KEY)
     if not target_place:
-        # 역명을 뺀 단독 검색 시도
         target_place = search_keyword(sub_area.strip(), KAKAO_API_KEY)
 else:
     target_place = station_place
@@ -238,19 +368,28 @@ if target_place:
     center_name = target_place["place_name"]
     center_addr = target_place.get("road_address_name") or target_place.get("address_name")
     
-    # 상단 안내 배너
+    # 상단 위치 요약 배너
     col_banner1, col_banner2 = st.columns([3, 1])
     with col_banner1:
         if sub_area.strip() and center_name != st_official_name:
-            # 기차역 -> 세부 동네 이동 거리 및 시간 계산
             to_sub_dist = calculate_distance(st_lat, st_lng, center_lat, center_lng)
             w_min, c_min, r_dist = estimate_travel_time(to_sub_dist)
-            st.info(
-                f"🚆 **도착역:** {st_official_name} ➔ 📍 **탐색 지역:** **{center_name}** ({center_addr})\n\n"
-                f"*(역에서 {center_name}까지: 약 {r_dist/1000:.1f}km | 택시/차량 약 {c_min}분)*"
-            )
+            st.markdown(f"""
+            <div class="banner-card">
+                <div>
+                    <b>🚆 도착역:</b> {st_official_name} ➔ <b>📍 세부 탐색지:</b> <b>{center_name}</b> ({center_addr})<br>
+                    <span style="font-size: 13px; color: #B45309;">(역에서 {center_name}까지: 약 {r_dist/1000:.1f}km | 차량 약 {c_min}분 소요)</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.info(f"📍 탐색 기준: **{center_name}** ({center_addr}) | 🚶 반경 **{radius}m** 내 맛집/카페/관광지 탐색")
+            st.markdown(f"""
+            <div class="banner-card">
+                <div>
+                    <b>📍 탐색 중심:</b> <b>{center_name}</b> ({center_addr}) &nbsp;|&nbsp; 🚶 반경 <b>{radius}m</b> 내 추천 장소
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             
     with col_banner2:
         st.link_button("🎫 코레일 시간표 조회", "https://www.letskorail.com/", use_container_width=True)
@@ -267,7 +406,6 @@ if target_place:
     with col_map:
         m = folium.Map(location=[center_lat, center_lng], zoom_start=14)
         
-        # 기차역 마커 (검은색 별)
         folium.Marker(
             location=[st_lat, st_lng],
             popup=f"<b>[기차역] {st_official_name}</b>",
@@ -275,7 +413,6 @@ if target_place:
             icon=folium.Icon(color="black", icon="star")
         ).add_to(m)
 
-        # 세부 동네가 별도인 경우 파란색 핀 마커 표시
         if center_name != st_official_name:
             folium.Marker(
                 location=[center_lat, center_lng],
@@ -284,16 +421,15 @@ if target_place:
                 icon=folium.Icon(color="blue", icon="info-sign")
             ).add_to(m)
 
-        # 탐색 반경 원
         folium.Circle(
             radius=radius,
             location=[center_lat, center_lng],
-            color="#3186cc",
+            color="#EAB308",
             fill=True,
-            fill_opacity=0.08
+            fill_color="#FEF08A",
+            fill_opacity=0.15
         ).add_to(m)
 
-        # 카테고리 마커
         def add_category_markers(items, color, icon_name, tag):
             for item in items:
                 lat = float(item["y"])
@@ -312,7 +448,6 @@ if target_place:
         add_category_markers(cafes, "orange", "heart", "카페")
         add_category_markers(restaurants, "red", "bookmark", "맛집")
 
-        # 담은 코스 마커(보라색) 및 연결선
         if st.session_state.my_trip:
             route_coords = [[st_lat, st_lng]]
             for idx, p in enumerate(st.session_state.my_trip, 1):
@@ -326,16 +461,16 @@ if target_place:
 
             folium.PolyLine(
                 locations=route_coords,
-                color="#6366f1",
+                color="#D97706",
                 weight=4,
-                opacity=0.8,
-                dash_array="8, 8"
+                opacity=0.85,
+                dash_array="6, 6"
             ).add_to(m)
 
         st_folium(m, width="100%", height=530)
 
     # ----------------------------------------------------
-    # 우측 탭별 목록 (담기 버튼)
+    # 우측 탭별 목록
     # ----------------------------------------------------
     with col_details:
         tab_spot, tab_cafe, tab_food = st.tabs([
@@ -357,7 +492,7 @@ if target_place:
                 p_lng = float(item.get("x"))
                 url = item.get("place_url")
                 
-                title = f"{idx}. {name}" + (f" (기준점에서 {dist}m)" if dist else "")
+                title = f"{idx}. {name}" + (f" (거리 {dist}m)" if dist else "")
                 with st.expander(title):
                     img_url = get_place_image(name, KAKAO_API_KEY)
                     if img_url:
@@ -398,22 +533,21 @@ if target_place:
     st.markdown("---")
 
     # ----------------------------------------------------
-    # 내 여행 코스 타임라인 & 이동시간
+    # 내 여행 코스 타임라인
     # ----------------------------------------------------
-    st.subheader(f"🗺️ {st_official_name} 출발 나만의 여행 코스 & 이동시간")
+    st.markdown(f"### 🗺️ {st_official_name} 출발 나만의 여행 코스")
 
     if not st.session_state.my_trip:
         st.info("💡 위 추천 리스트에서 **[➕ 내 코스에 담기]**를 누르면 장소 간 이동시간과 동선이 자동으로 계산됩니다.")
     else:
         col_c_head, col_c_btn = st.columns([4, 1])
         with col_c_head:
-            st.write(f"현재 총 **{len(st.session_state.my_trip)}개**의 장소가 담겼습니다. (지도 위 보라색 깃발과 점선 확인)")
+            st.write(f"현재 총 **{len(st.session_state.my_trip)}개**의 장소가 담겼습니다. (지도 위 오렌지 점선 경로 확인)")
         with col_c_btn:
             if st.button("🗑️ 코스 전체 비우기", use_container_width=True):
                 st.session_state.my_trip = []
                 st.rerun()
 
-        # 기차역 출발 기준 경로 구성
         full_route = [{
             "name": f"🚆 {st_official_name} (도착역/출발점)",
             "category": "기차역",
@@ -449,27 +583,26 @@ if target_place:
                 total_walk_time += w_time
                 total_car_time += c_time
 
-                # 거리가 10km 이상으로 너무 멀면 장거리 알림 표시
-                dist_warning = " ⚠️ *(동선이 멉니다)*" if r_dist > 10000 else ""
-                
+                dist_warning = " ⚠️ *(동선 주의: 거리가 멉니다)*" if r_dist > 10000 else ""
                 st.markdown(
                     f"""
-                    <div style="margin-left: 30px; padding: 6px 12px; border-left: 2px dashed #6366f1; color: #475569; font-size: 0.9em;">
-                        ⬇️ 이동 거리: <b>약 {r_dist:,}m</b>{dist_warning} | 🚶 도보 <b>약 {w_time}분</b> | 🚕 택시/차량 <b>약 {c_time}분</b>
+                    <div style="margin-left: 28px; padding: 6px 14px; border-left: 3px dashed #F59E0B; color: #92400E; font-size: 0.9em; background-color: #FFFDF7;">
+                        ⬇️ 이동 거리: <b>약 {r_dist:,}m</b>{dist_warning} &nbsp;|&nbsp; 🚶 도보 <b>약 {w_time}분</b> &nbsp;|&nbsp; 🚕 차량 <b>약 {c_time}분</b>
                     </div>
                     """, 
                     unsafe_allow_html=True
                 )
 
-        st.success(
-            f"📊 **코스 총 이동 통계:** 총 이동거리 **약 {total_distance/1000:.1f}km** | "
-            f"도보 누적 **약 {total_walk_time}분** | 차량/택시 누적 **약 {total_car_time}분**"
-        )
+        st.markdown(f"""
+        <div style="background-color: #FEF9C3; border: 1px solid #FDE047; padding: 12px 18px; border-radius: 12px; color: #78350F; font-weight: 600; margin-top: 10px;">
+            📊 <b>코스 총 이동 통계:</b> 총 이동거리 <b>약 {total_distance/1000:.1f}km</b> &nbsp;|&nbsp; 도보 누적 <b>약 {total_walk_time}분</b> &nbsp;|&nbsp; 차량 누적 <b>약 {total_car_time}분</b>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
 
     # ----------------------------------------------------
-    # 하단 2x2 그리드 (날씨 / 옷차림 / 환율 / 계산기)
+    # 하단 2x2 대칭 그리드
     # ----------------------------------------------------
     col_left, col_right = st.columns(2)
 
@@ -481,6 +614,7 @@ if target_place:
     pm2_5 = weather_info.get("pm2_5")
     air_status, air_icon = get_air_quality_status(pm10, pm2_5)
 
+    # 1. 좌측 상단: 날씨 & 공기질
     with col_left:
         with st.container(border=True):
             st.markdown(f"#### ⛅ {center_name} 실시간 날씨 & 공기질")
@@ -492,13 +626,14 @@ if target_place:
             with w_c3:
                 st.metric("풍속", f"{wind} km/h" if wind is not None else "-")
 
-            st.markdown("---")
+            st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
             a_c1, a_c2 = st.columns(2)
             with a_c1:
                 st.write(f"**미세먼지 상태:** {air_icon} {air_status}")
             with a_c2:
                 st.caption(f"PM10: {pm10}㎍/㎥ | 초미세: {pm2_5}㎍/㎥" if pm10 is not None else "측정 중")
 
+    # 2. 우측 상단: 옷차림 추천
     with col_right:
         with st.container(border=True):
             st.markdown("#### 👕 기차 여행 맞춤 옷차림 & 팁")
@@ -507,10 +642,11 @@ if target_place:
             st.markdown("**추천 아이템:**")
             st.write(", ".join(outfit["items"]))
             if pm10 and pm10 > 80:
-                st.warning("⚠️ 미세먼지가 높습니다. 마스크를 챙기세요.")
+                st.warning("⚠️ 미세먼지가 높습니다. 마스크를 꼭 챙기세요.")
             else:
                 st.success("✨ 쾌적한 뚜벅이 여행이 가능한 날씨입니다.")
 
+    # 3. 좌측 하단: 실시간 환율
     with col_left:
         with st.container(border=True):
             st.markdown("#### 💵 실시간 주요 환율 (USD)")
@@ -530,6 +666,7 @@ if target_place:
                     st.metric("USD / EUR", f"{usd_eur:,.4f} €")
             st.caption("실시간 국제 외환 시장 기준")
 
+    # 4. 우측 하단: 환율 계산기
     with col_right:
         with st.container(border=True):
             st.markdown("#### 💱 실시간 환율 계산기")
@@ -549,3 +686,6 @@ if target_place:
                 st.caption(f"적용 환율: 1 {f_curr} = {rate:,.4f} {t_curr}")
             else:
                 st.caption("환율 계산기 일시 중단")
+
+else:
+    st.warning("선택된 역이나 장소의 검색 결과가 없습니다. 올바른 역명을 입력해 주세요.")
